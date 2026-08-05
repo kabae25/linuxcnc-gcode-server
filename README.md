@@ -286,3 +286,221 @@ commands or setting the acceleration via bash script as mentioned above.
 
 Although this server is capable of communicating with multiple clients at the same time, that's not really the intended use case. The main issue is that the `beginsub` / `endsub` status is tracked globally on the server, not per client. So one client can start the batch and a different client could end it. If you want to switch between using different clients, just make sure there is no ongoing subroutine batch.
 
+<br>
+
+## Single-Axis Rotary Table Control (REST API, Web UI, Tkinter GUI & IDLE)
+
+This codebase includes a single-axis (A-axis) rotary table controller system with a complete suite of interfaces:
+
+1. **Python REST API Gateway** ([python-api-gateway/app.py](python-api-gateway/app.py)): Standard-library HTTP REST server allowing external systems (e.g. Python test runners) to query and command the rotary table.
+2. **Web Dashboard** ([web/index.html](web/index.html)): Modern browser UI featuring a visual circular dial gauge, position readout in degrees, quick preset grid (0° to 360°), step jog controls (+ / -), and safety buttons.
+3. **Tkinter Desktop GUI** ([gui/tkinter_app.py](gui/tkinter_app.py)): Standalone desktop application with live position readout, jog controls, preset buttons, and manual G-code entry.
+4. **Interactive Python IDLE Module** ([rotary.py](rotary.py)): Interactive shell module for Python IDLE/REPL. All commands route through the REST Gateway to maintain identical behavior across all interfaces.
+5. **Zero-Dependency Python SDK** ([python-api-gateway/client.py](python-api-gateway/client.py)): `RotaryTableClient` SDK for programmatic integration into Python test suites.
+
+---
+
+### System Architecture
+
+```
+┌──────────────────────────────────────────────────────────────────────────┐
+│                   External Python Test System / IDLE                     │
+└──────────────────────────────────────────────────────────────────────────┘
+                                     │ (REST API / client.py)
+                                     ▼
+┌──────────────────────────────────────────────────────────────────────────┐
+│                    Python REST Gateway (app.py)                          │
+│                                                                          │
+│  - GET  /api/v1/position    -> Read table angle in degrees (e.g. 180°) │
+│  - POST /api/v1/move        -> Absolute/Relative move (G0 A<angle>)     │
+│  - POST /api/v1/jog         -> Step jog + / -                           │
+│  - POST /api/v1/preset      -> Move to quick preset angle                 │
+│  - POST /api/v1/home        -> Home A-axis                              │
+│  - POST /api/v1/enable      -> Clear ESTOP & enable machine             │
+│  - POST /api/v1/abort       -> Abort motion                             │
+└──────────────────────────────────────────────────────────────────────────┘
+           │                                          │
+           ▼ (HTTP / Localhost)                       ▼ (TCP Socket / JSON)
+┌──────────────────────────────────────┐   ┌──────────────────────────────┐
+│  Web Dashboard / Tkinter Desktop App │   │  LinuxCNC NML Core Server    │
+│  (index.html / tkinter_app.py)       │   │  (linuxcnc-gcode-server)     │
+└──────────────────────────────────────┘   └──────────────────────────────┘
+```
+
+---
+
+### Simplified System Setup
+
+#### 1. Set `DISPLAY = dummy` in your Machine `.ini` File
+Open your machine configuration `.ini` file (e.g. `rotary_table.ini`) and set `DISPLAY = dummy` under the `[DISPLAY]` section:
+
+```ini
+[DISPLAY]
+DISPLAY = dummy
+```
+This instructs LinuxCNC to run natively without attempting to open any graphical window, eliminating the need for complex wrapper scripts or virtual display servers.
+
+#### 2. Manual CLI Launch
+If running manually from terminal:
+
+```bash
+# 1. Start LinuxCNC background engine
+linuxcnc /path/to/your/rotary_table.ini &
+
+# 2. Build and start C++ G-Code Server
+make
+./linuxcnc-gcode-server -p 5007 -e -i /path/to/your/rotary_table.ini &
+
+# 3. Start Python REST Gateway & Web UI
+python3 python-api-gateway/app.py
+```
+
+#### 3. Control via Web Dashboard, Tkinter GUI, or IDLE
+- **Web Dashboard**: Navigate to [http://localhost:8000](http://localhost:8000)
+- **Tkinter Desktop GUI**: `python3 gui/tkinter_app.py`
+- **Interactive Python IDLE**:
+  ```python
+  >>> from rotary import *
+  >>> pos()            # Reads position: 0.00°
+  >>> move(360)        # Executes G0 A360
+  >>> jog_cw(10)       # Step jog +10° CW
+  >>> home()           # Home A-axis
+  ```
+- **Python Automation SDK**:
+  ```python
+  from client import RotaryTableClient
+  client = RotaryTableClient("http://localhost:8000")
+  client.move_to(360.0)
+  ```
+
+<br>
+
+---
+
+## 🍓 Raspberry Pi Headless & Systemd Auto-Start Setup (Zero-IP Configuration)
+
+To run the system on a Raspberry Pi as background services with **mDNS broadcasting** (`rotary-table.local`), follow these simple steps:
+
+---
+
+### 1. Install & Configure Avahi (mDNS)
+
+```bash
+sudo apt update && sudo apt install -y avahi-daemon avahi-utils
+sudo hostnamectl set-hostname rotary-table
+
+# Copy mDNS service broadcast config
+sudo cp configs/avahi/rotary-table.service /etc/avahi/services/
+sudo systemctl restart avahi-daemon
+```
+
+---
+
+### 2. Install Systemd Background Services
+
+Three simple systemd service files are provided in `configs/systemd/`:
+
+1. [linuxcnc.service](configs/systemd/linuxcnc.service): Starts LinuxCNC core engine.
+2. [linuxcnc-gcode-server.service](configs/systemd/linuxcnc-gcode-server.service): Starts C++ NML socket server.
+3. [rotary-api-gateway.service](configs/systemd/rotary-api-gateway.service): Starts Python REST API & Web UI.
+
+Edit the `.ini` file paths in `linuxcnc.service` and `linuxcnc-gcode-server.service` to point to your actual machine `.ini` file, then enable them:
+
+```bash
+# Copy systemd service units
+sudo cp configs/systemd/*.service /etc/systemd/system/
+
+# Reload and start all services on boot
+sudo systemctl daemon-reload
+sudo systemctl enable --now linuxcnc.service
+sudo systemctl enable --now linuxcnc-gcode-server.service
+sudo systemctl enable --now rotary-api-gateway.service
+```
+
+---
+
+### 3. Zero-IP Access from Any Device
+
+Once enabled, your system automatically boots into service and is accessible network-wide via **`rotary-table.local`**:
+
+- 🌐 **Web Dashboard**: `http://rotary-table.local:8000`
+- 🖥️ **Tkinter Desktop GUI**: Connects to `http://rotary-table.local:8000`
+- 🐍 **Python IDLE**: `connect("http://rotary-table.local:8000")`
+- 🧪 **Test Automation**: `RotaryTableClient("http://rotary-table.local:8000")`
+
+<br>
+
+---
+
+## 🧪 Integration into Larger Hardware Testing Suites
+
+This system is designed specifically for automated hardware-in-the-loop (HIL) testing suites (such as `pytest`, `unittest`, or custom Python test runners). By using the zero-dependency SDK (`python-api-gateway/client.py`), your test harness can programmatically position sensors, antennas, or DUTs (Devices Under Test) mounted on the rotary table.
+
+### 1. Initializing Connection
+
+Import `RotaryTableClient` and pass the gateway endpoint. Thanks to mDNS, you can use the hostname `http://rotary-table.local:8000` without hardcoding IP addresses:
+
+```python
+from client import RotaryTableClient
+
+# Initialize connection (default timeout: 5.0s)
+table = RotaryTableClient("http://rotary-table.local:8000")
+
+# Optional: verify machine status before running tests
+status_info = table.get_status()
+print(f"Machine State: {status_info.get('state')}")
+```
+
+### 2. Controlling Table & Sweeping Angles in Test Scripts
+
+```python
+import time
+from client import RotaryTableClient
+
+def run_antenna_pattern_test():
+    # 1. Connect & initialize machine state
+    table = RotaryTableClient("http://rotary-table.local:8000")
+    table.enable()   # Clear ESTOP & enable motor drivers
+    table.home()     # Home A-axis to 0° reference point
+
+    # 2. Perform automated angular sweep test (0° to 360° in 45° steps)
+    test_angles = [0, 45, 90, 135, 180, 225, 270, 315, 360]
+    results = {}
+
+    for angle in test_angles:
+        # Move table to exact target angle
+        table.move_to(angle, feedrate=1200) # G1 A<angle> F1200
+        
+        # Verify arrival
+        current_pos = table.get_position()
+        print(f"Rotary Table positioned at: {current_pos:.2f}°")
+
+        # 3. Trigger your sensor / RF measurement here
+        sensor_value = read_rf_power_meter() # Your test instrumentation
+        results[angle] = sensor_value
+
+    # 4. Return to 0° home position after test completion
+    table.move_preset(0)
+    return results
+
+if __name__ == "__main__":
+    data = run_antenna_pattern_test()
+    print("Test Sweep Complete:", data)
+```
+
+### Key SDK Methods for Test Harnesses
+
+| Method | G-Code Equivalent | Description |
+| :--- | :--- | :--- |
+| `table.get_position()` | `M114` | Returns current A-axis position in degrees as `float`. |
+| `table.move_to(angle, feedrate=None)` | `G0 A<val>` / `G1 A<val> F<rate>` | Synchronously moves to absolute angle in degrees. |
+| `table.move_relative(delta, feedrate=None)` | `G0 A<current+delta>` | Incremental relative move offset in degrees. |
+| `table.jog(direction, step_deg)` | Step move | Step jog CW (`+1`) or CCW (`-1`). |
+| `table.home()` | `HOME` | Homes A-axis. |
+| `table.enable()` | `ENABLE` | Clears ESTOP and enables machine power. |
+| `table.abort()` | `ABORT` | Immediately stops table motion. |
+
+
+
+
+

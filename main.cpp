@@ -390,12 +390,12 @@ typedef enum {
     cmdFinishMoves,
     cmdBeginBatch,
     cmdEndBatch,
-    //cmdSetDPinState,
-    //cmdSetAcceleration,
+    cmdJsonStatus,
+    cmdJsonPosition,
     cmdUnknown
 } commandTokenType;
 
-const char *commands[] = {"STATUS", "ABORT", "ENABLE", "HOME", "MANUAL", "MDI", "OPEN", "FILE", "RUN", "PAUSE", "RESUME", "M114", "M115", "M105", "M400", "BEGINSUB", "ENDSUB", /*"M42", "M171",*/ ""};
+const char *commands[] = {"STATUS", "ABORT", "ENABLE", "HOME", "MANUAL", "MDI", "OPEN", "FILE", "RUN", "PAUSE", "RESUME", "M114", "M115", "M105", "M400", "BEGINSUB", "ENDSUB", "STATUS_JSON", "M114_JSON", ""};
 
 int lookupToken(char *s)
 {
@@ -462,6 +462,44 @@ void replyPosition( connectionRecType* context ) {
 //            wsz,
 //            wsa
     );
+    write(context->cliSock, s, strlen(s));
+}
+
+void replyJsonPosition( connectionRecType* context ) {
+    updateStatus();
+    EmcPose wsPose;
+    wsPose.tran.x = emcStatus->motion.traj.actualPosition.tran.x - emcStatus->task.g5x_offset.tran.x - emcStatus->task.g92_offset.tran.x;
+    wsPose.tran.y = emcStatus->motion.traj.actualPosition.tran.y - emcStatus->task.g5x_offset.tran.y - emcStatus->task.g92_offset.tran.y;
+    wsPose.tran.z = emcStatus->motion.traj.actualPosition.tran.z - emcStatus->task.g5x_offset.tran.z - emcStatus->task.g92_offset.tran.z;
+    wsPose.a = emcStatus->motion.traj.actualPosition.a - emcStatus->task.g5x_offset.a - emcStatus->task.g92_offset.a;
+
+    char s[256];
+    snprintf(s, sizeof(s), "{\"ok\":true,\"x\":%.4f,\"y\":%.4f,\"z\":%.4f,\"a\":%.4f}\n",
+             wsPose.tran.x, wsPose.tran.y, wsPose.tran.z, wsPose.a);
+    write(context->cliSock, s, strlen(s));
+}
+
+void replyJsonStatus( connectionRecType* context ) {
+    updateStatus();
+    EmcPose wsPose;
+    wsPose.tran.x = emcStatus->motion.traj.actualPosition.tran.x - emcStatus->task.g5x_offset.tran.x - emcStatus->task.g92_offset.tran.x;
+    wsPose.tran.y = emcStatus->motion.traj.actualPosition.tran.y - emcStatus->task.g5x_offset.tran.y - emcStatus->task.g92_offset.tran.y;
+    wsPose.tran.z = emcStatus->motion.traj.actualPosition.tran.z - emcStatus->task.g5x_offset.tran.z - emcStatus->task.g92_offset.tran.z;
+    wsPose.a = emcStatus->motion.traj.actualPosition.a - emcStatus->task.g5x_offset.a - emcStatus->task.g92_offset.a;
+
+    std::string homeJson = "[";
+    for (int i = 0; i < numJoints; i++) {
+        homeJson += (i > 0 ? "," : "") + std::to_string(emcStatus->motion.joint[i].homed);
+    }
+    homeJson += "]";
+
+    char s[512];
+    snprintf(s, sizeof(s),
+             "{\"state\":\"%s\",\"mode\":\"%s\",\"homed\":%s,\"workspace\":{\"x\":%.4f,\"y\":%.4f,\"z\":%.4f,\"a\":%.4f}}\n",
+             getString_EMC_TASK_STATE_short( emcStatus->task.state ),
+             getString_EMC_TASK_MODE_short( emcStatus->task.mode ),
+             homeJson.c_str(),
+             wsPose.tran.x, wsPose.tran.y, wsPose.tran.z, wsPose.a);
     write(context->cliSock, s, strlen(s));
 }
 
@@ -963,11 +1001,17 @@ int parseCommand(connectionRecType *context)
                 case cmdStatus:
                     replyStatus(context);
                     break;
+                case cmdJsonStatus:
+                    replyJsonStatus(context);
+                    break;
                 case cmdFirmwareInfo:
                     replyFirmwareInfo(context);
                     break;
                 case cmdPosition:
                     replyPosition(context);
+                    break;
+                case cmdJsonPosition:
+                    replyJsonPosition(context);
                     break;
                 case cmdGetAPinState:
                     getAPinState(context);

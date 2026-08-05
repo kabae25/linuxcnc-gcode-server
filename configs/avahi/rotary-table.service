@@ -1,0 +1,20 @@
+<?xml version="1.0" standalone='no'?>
+<!DOCTYPE service-group SYSTEM "avahi-service-group.dtd">
+<service-group>
+  <name replace-wildcards="yes">LinuxCNC Rotary Table Controller on %h</name>
+
+  <!-- Web Dashboard & REST API Gateway (port 8000) -->
+  <service>
+    <type>_http._tcp</type>
+    <port>8000</port>
+    <txt-record>path=/</txt-record>
+    <txt-record>name=Rotary Table REST API</txt-record>
+  </service>
+
+  <!-- LinuxCNC NML G-Code Socket Server (port 5007) -->
+  <service>
+    <type>_gcode._tcp</type>
+    <port>5007</port>
+    <txt-record>name=LinuxCNC NML Server</txt-record>
+  </service>
+</service-group>

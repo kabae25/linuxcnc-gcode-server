@@ -1,0 +1,527 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>LinuxCNC Rotary Table Controller</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg-dark: #0f172a;
+      --card-bg: rgba(30, 41, 59, 0.7);
+      --card-border: rgba(255, 255, 255, 0.1);
+      --accent-blue: #38bdf8;
+      --accent-purple: #818cf8;
+      --accent-emerald: #34d399;
+      --accent-rose: #fb7185;
+      --text-main: #f8fafc;
+      --text-muted: #94a3b8;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      font-family: 'Inter', sans-serif;
+    }
+
+    body {
+      background-color: var(--bg-dark);
+      background-image: 
+        radial-gradient(at 0% 0%, rgba(56, 189, 248, 0.12) 0px, transparent 50%),
+        radial-gradient(at 100% 100%, rgba(129, 140, 248, 0.12) 0px, transparent 50%);
+      color: var(--text-main);
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 2rem 1rem;
+    }
+
+    header {
+      width: 100%;
+      max-width: 1000px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 2rem;
+      padding: 1rem 1.5rem;
+      background: var(--card-bg);
+      backdrop-filter: blur(12px);
+      border: 1px solid var(--card-border);
+      border-radius: 16px;
+    }
+
+    .title-group h1 {
+      font-size: 1.5rem;
+      font-weight: 700;
+      background: linear-gradient(135deg, var(--accent-blue), var(--accent-purple));
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+
+    .title-group p {
+      font-size: 0.875rem;
+      color: var(--text-muted);
+    }
+
+    .status-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.5rem;
+      padding: 0.5rem 1rem;
+      background: rgba(15, 23, 42, 0.6);
+      border: 1px solid var(--card-border);
+      border-radius: 9999px;
+      font-size: 0.85rem;
+      font-weight: 500;
+    }
+
+    .status-dot {
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+      background-color: var(--accent-emerald);
+      box-shadow: 0 0 10px var(--accent-emerald);
+    }
+
+    .status-dot.offline {
+      background-color: var(--accent-rose);
+      box-shadow: 0 0 10px var(--accent-rose);
+    }
+
+    .main-grid {
+      width: 100%;
+      max-width: 1000px;
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 1.5rem;
+    }
+
+    @media (max-width: 800px) {
+      .main-grid {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    .card {
+      background: var(--card-bg);
+      backdrop-filter: blur(12px);
+      border: 1px solid var(--card-border);
+      border-radius: 20px;
+      padding: 1.5rem;
+      display: flex;
+      flex-direction: column;
+      gap: 1.25rem;
+    }
+
+    .card-title {
+      font-size: 1.1rem;
+      font-weight: 600;
+      color: var(--text-main);
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+
+    /* Dial Display */
+    .dial-container {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 1rem 0;
+    }
+
+    .gauge-wrapper {
+      position: relative;
+      width: 220px;
+      height: 220px;
+    }
+
+    .gauge-svg {
+      transform: rotate(-90deg);
+      width: 100%;
+      height: 100%;
+    }
+
+    .gauge-bg {
+      fill: none;
+      stroke: rgba(255, 255, 255, 0.05);
+      stroke-width: 16;
+    }
+
+    .gauge-progress {
+      fill: none;
+      stroke: url(#gaugeGradient);
+      stroke-width: 16;
+      stroke-linecap: round;
+      stroke-dasharray: 565;
+      stroke-dashoffset: 565;
+      transition: stroke-dashoffset 0.3s ease, stroke 0.3s ease;
+    }
+
+    .gauge-center {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      text-align: center;
+    }
+
+    .position-readout {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 2.25rem;
+      font-weight: 700;
+      color: var(--text-main);
+      letter-spacing: -0.05em;
+    }
+
+    .position-unit {
+      font-size: 0.9rem;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      font-weight: 600;
+      margin-top: -4px;
+    }
+
+    /* Presets Grid */
+    .presets-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 0.75rem;
+    }
+
+    .btn {
+      padding: 0.75rem 1rem;
+      background: rgba(255, 255, 255, 0.05);
+      border: 1px solid var(--card-border);
+      border-radius: 12px;
+      color: var(--text-main);
+      font-weight: 600;
+      font-size: 0.9rem;
+      cursor: pointer;
+      transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 0.5rem;
+    }
+
+    .btn:hover {
+      background: rgba(56, 189, 248, 0.15);
+      border-color: rgba(56, 189, 248, 0.4);
+      transform: translateY(-2px);
+    }
+
+    .btn:active {
+      transform: translateY(0);
+    }
+
+    .btn-primary {
+      background: linear-gradient(135deg, var(--accent-blue), #0284c7);
+      border: none;
+      color: #0f172a;
+      font-weight: 700;
+    }
+
+    .btn-primary:hover {
+      background: linear-gradient(135deg, #7dd3fc, var(--accent-blue));
+      box-shadow: 0 4px 15px rgba(56, 189, 248, 0.3);
+    }
+
+    .btn-danger {
+      background: rgba(251, 113, 133, 0.15);
+      border-color: rgba(251, 113, 133, 0.3);
+      color: var(--accent-rose);
+    }
+
+    .btn-danger:hover {
+      background: rgba(251, 113, 133, 0.3);
+      border-color: var(--accent-rose);
+    }
+
+    .btn-emerald {
+      background: rgba(52, 211, 153, 0.15);
+      border-color: rgba(52, 211, 153, 0.3);
+      color: var(--accent-emerald);
+    }
+
+    .btn-emerald:hover {
+      background: rgba(52, 211, 153, 0.3);
+      border-color: var(--accent-emerald);
+    }
+
+    /* Jog Controls */
+    .jog-container {
+      display: flex;
+      flex-direction: column;
+      gap: 1rem;
+    }
+
+    .step-selector {
+      display: flex;
+      background: rgba(15, 23, 42, 0.6);
+      padding: 0.25rem;
+      border-radius: 12px;
+      border: 1px solid var(--card-border);
+    }
+
+    .step-option {
+      flex: 1;
+      text-align: center;
+      padding: 0.5rem;
+      font-size: 0.85rem;
+      font-weight: 600;
+      border-radius: 8px;
+      cursor: pointer;
+      color: var(--text-muted);
+      transition: all 0.2s;
+    }
+
+    .step-option.active {
+      background: var(--accent-blue);
+      color: #0f172a;
+    }
+
+    .jog-buttons {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 1rem;
+    }
+
+    .jog-btn {
+      height: 60px;
+      font-size: 1.25rem;
+      font-weight: 700;
+    }
+
+    /* Input Group */
+    .input-group {
+      display: flex;
+      gap: 0.75rem;
+    }
+
+    .input-field {
+      flex: 1;
+      padding: 0.75rem 1rem;
+      background: rgba(15, 23, 42, 0.6);
+      border: 1px solid var(--card-border);
+      border-radius: 12px;
+      color: var(--text-main);
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 1rem;
+    }
+
+    .input-field:focus {
+      outline: none;
+      border-color: var(--accent-blue);
+    }
+
+    .actions-row {
+      display: grid;
+      grid-template-columns: 1fr 1fr 1fr;
+      gap: 0.75rem;
+      margin-top: auto;
+    }
+  </style>
+</head>
+<body>
+
+  <header>
+    <div class="title-group">
+      <h1>LinuxCNC Rotary Table Controller</h1>
+      <p>A-Axis Remote Position & Motion Control Interface</p>
+    </div>
+    <div class="status-badge">
+      <div id="statusDot" class="status-dot"></div>
+      <span id="statusText">Connected</span>
+    </div>
+  </header>
+
+  <main class="main-grid">
+
+    <!-- Card 1: Readout & Presets -->
+    <div class="card">
+      <div class="card-title">
+        <svg width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg>
+        Current Angle Readout
+      </div>
+
+      <div class="dial-container">
+        <div class="gauge-wrapper">
+          <svg class="gauge-svg" viewBox="0 0 200 200">
+            <defs>
+              <linearGradient id="gaugeGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+                <stop offset="0%" stop-color="#38bdf8" />
+                <stop offset="100%" stop-color="#818cf8" />
+              </linearGradient>
+            </defs>
+            <circle class="gauge-bg" cx="100" cy="100" r="90" />
+            <circle id="gaugeProgress" class="gauge-progress" cx="100" cy="100" r="90" />
+          </svg>
+          <div class="gauge-center">
+            <div id="readoutValue" class="position-readout">0.0°</div>
+            <div class="position-unit">A-AXIS DEGREES</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="card-title" style="margin-top: 0.5rem;">
+        <svg width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M13 10V3L4 14h7v7l9-11h-7z"/></svg>
+        Quick Presets
+      </div>
+
+      <div class="presets-grid">
+        <button class="btn" onclick="moveToPreset(0)">0°</button>
+        <button class="btn" onclick="moveToPreset(45)">45°</button>
+        <button class="btn" onclick="moveToPreset(90)">90°</button>
+        <button class="btn" onclick="moveToPreset(135)">135°</button>
+        <button class="btn" onclick="moveToPreset(180)">180°</button>
+        <button class="btn" onclick="moveToPreset(225)">225°</button>
+        <button class="btn" onclick="moveToPreset(270)">270°</button>
+        <button class="btn" onclick="moveToPreset(315)">315°</button>
+        <button class="btn" onclick="moveToPreset(360)">360°</button>
+      </div>
+    </div>
+
+    <!-- Card 2: Jogging & Direct Command -->
+    <div class="card">
+      <div class="card-title">
+        <svg width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M8 9l4-4 4 4m0 6l-4 4-4-4"/></svg>
+        Step Jog Controls
+      </div>
+
+      <div class="jog-container">
+        <label style="font-size: 0.85rem; color: var(--text-muted); font-weight: 500;">SELECT STEP INCREMENT</label>
+        <div class="step-selector">
+          <div class="step-option" onclick="setStep(0.1, this)">0.1°</div>
+          <div class="step-option active" onclick="setStep(1.0, this)">1.0°</div>
+          <div class="step-option" onclick="setStep(10.0, this)">10.0°</div>
+          <div class="step-option" onclick="setStep(45.0, this)">45.0°</div>
+          <div class="step-option" onclick="setStep(90.0, this)">90.0°</div>
+        </div>
+
+        <div class="jog-buttons">
+          <button class="btn jog-btn" onclick="jog(-1)">⟲ - CCW</button>
+          <button class="btn jog-btn" onclick="jog(1)">⟳ + CW</button>
+        </div>
+      </div>
+
+      <div class="card-title" style="margin-top: 0.5rem;">
+        <svg width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8"/></svg>
+        Target Absolute Move
+      </div>
+
+      <div class="input-group">
+        <input id="targetPosInput" type="number" step="0.1" class="input-field" placeholder="Enter angle (e.g. 360.0)">
+        <button class="btn btn-primary" onclick="sendTargetMove()">GO (G0)</button>
+      </div>
+
+      <div class="actions-row">
+        <button class="btn btn-emerald" onclick="sendAction('/api/v1/enable')">ENABLE</button>
+        <button class="btn" onclick="sendAction('/api/v1/home')">HOME A</button>
+        <button class="btn btn-danger" onclick="sendAction('/api/v1/abort')">ABORT</button>
+      </div>
+    </div>
+
+  </main>
+
+  <script>
+    let currentStep = 1.0;
+    let ws = null;
+    const CIRCUMFERENCE = 565; // 2 * PI * 90
+
+    function setStep(val, elem) {
+      currentStep = val;
+      document.querySelectorAll('.step-option').forEach(el => el.classList.remove('active'));
+      elem.classList.add('active');
+    }
+
+    function updateGauge(angleDeg) {
+      document.getElementById('readoutValue').innerText = `${angleDeg.toFixed(1)}°`;
+      // Map 0 - 360 to gauge circumference
+      let normalizedAngle = ((angleDeg % 360) + 360) % 360;
+      let offset = CIRCUMFERENCE - (normalizedAngle / 360) * CIRCUMFERENCE;
+      document.getElementById('gaugeProgress').style.strokeDashoffset = offset;
+    }
+
+    function connectWebSocket() {
+      const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+      const wsUrl = `${protocol}//${window.location.host}/ws/telemetry`;
+      
+      ws = new WebSocket(wsUrl);
+
+      ws.onopen = () => {
+        document.getElementById('statusDot').classList.remove('offline');
+        document.getElementById('statusText').innerText = 'Connected';
+      };
+
+      ws.onmessage = (event) => {
+        try {
+          const data = JSON.parse(event.data);
+          if (data.type === 'telemetry') {
+            updateGauge(data.position_deg);
+          }
+        } catch (e) {}
+      };
+
+      ws.onclose = () => {
+        document.getElementById('statusDot').classList.add('offline');
+        document.getElementById('statusText').innerText = 'Reconnecting...';
+        setTimeout(connectWebSocket, 2000);
+      };
+
+      ws.onerror = () => {
+        ws.close();
+      };
+    }
+
+    async function sendAction(url, payload = {}) {
+      try {
+        const resp = await fetch(url, {
+          method: 'POST',
+          headers: {'Content-Type': 'application/json'},
+          body: JSON.stringify(payload)
+        });
+        const res = await resp.json();
+        fetchPositionFallback();
+      } catch (err) {
+        console.error("Action error:", err);
+      }
+    }
+
+    function moveToPreset(angle) {
+      sendAction('/api/v1/preset', { preset_deg: angle });
+    }
+
+    function jog(dir) {
+      sendAction('/api/v1/jog', { direction: dir, step: currentStep });
+    }
+
+    function sendTargetMove() {
+      const val = parseFloat(document.getElementById('targetPosInput').value);
+      if (!isNaN(val)) {
+        sendAction('/api/v1/move', { position: val, mode: 'absolute' });
+      }
+    }
+
+    async function fetchPositionFallback() {
+      try {
+        const resp = await fetch('/api/v1/position');
+        const data = await resp.json();
+        if (data.ok) {
+          updateGauge(data.position_deg);
+        }
+      } catch (e) {}
+    }
+
+    // Init
+    connectWebSocket();
+    fetchPositionFallback();
+    setInterval(fetchPositionFallback, 1000);
+  </script>
+</body>
+</html>

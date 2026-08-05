@@ -1,0 +1,15 @@
+[Unit]
+Description=LinuxCNC Rotary Table REST API Gateway & Web UI
+After=network.target linuxcnc-gcode-server.service
+Wants=linuxcnc-gcode-server.service
+
+[Service]
+Type=simple
+User=pi
+WorkingDirectory=/home/pi/linuxcnc-gcode-server
+ExecStart=/usr/bin/python3 /home/pi/linuxcnc-gcode-server/python-api-gateway/app.py
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target

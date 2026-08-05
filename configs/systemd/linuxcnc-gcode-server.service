@@ -1,0 +1,16 @@
+[Unit]
+Description=LinuxCNC NML G-Code Server
+After=network.target linuxcnc.service
+Wants=linuxcnc.service
+
+[Service]
+Type=simple
+User=pi
+WorkingDirectory=/home/pi/linuxcnc-gcode-server
+# Replace with your actual machine INI file path
+ExecStart=/home/pi/linuxcnc-gcode-server/linuxcnc-gcode-server -p 5007 -e -i /home/pi/linuxcnc/configs/rotary_table/rotary_table.ini
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target
