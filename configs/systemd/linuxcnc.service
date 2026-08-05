@@ -6,8 +6,7 @@ After=network.target
 Type=simple
 User=cnc
 WorkingDirectory=/home/cnc
-# ExecStart uses -r flag to automatically restart without interactive Y/n prompt
-ExecStart=/usr/bin/linuxcnc -r /home/cnc/linuxcnc/configs/rotarytable/rotarytable.ini
+ExecStart=/usr/bin/linuxcnc /home/cnc/linuxcnc/configs/rotarytable/rotarytable.ini
 Restart=always
 RestartSec=5
 

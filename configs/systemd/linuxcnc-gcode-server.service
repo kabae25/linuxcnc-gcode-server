@@ -7,7 +7,7 @@ Wants=linuxcnc.service
 Type=simple
 User=cnc
 WorkingDirectory=/home/cnc/linuxcnc-gcode-server
-# Replace with your actual machine INI file path
+ExecStartPre=/bin/sleep 2
 ExecStart=/home/cnc/linuxcnc-gcode-server/linuxcnc-gcode-server -p 5007 -i /home/cnc/linuxcnc/configs/rotarytable/rotarytable.ini
 Restart=always
 RestartSec=5
