@@ -352,7 +352,7 @@ echo "Y" | linuxcnc /path/to/your/rotary_table.ini &
 
 # 2. Build and start C++ G-Code Server
 make
-./linuxcnc-gcode-server -p 5007 -e -i /path/to/your/rotary_table.ini &
+./linuxcnc-gcode-server -p 5007 -i /path/to/your/rotary_table.ini &
 
 # 3. Start Python REST Gateway & Web UI
 python3 python-api-gateway/app.py

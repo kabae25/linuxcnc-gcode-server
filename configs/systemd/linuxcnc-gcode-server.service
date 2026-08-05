@@ -8,7 +8,7 @@ Type=simple
 User=pi
 WorkingDirectory=/home/pi/linuxcnc-gcode-server
 # Replace with your actual machine INI file path
-ExecStart=/home/pi/linuxcnc-gcode-server/linuxcnc-gcode-server -p 5007 -e -i /home/pi/linuxcnc/configs/rotary_table/rotary_table.ini
+ExecStart=/home/pi/linuxcnc-gcode-server/linuxcnc-gcode-server -p 5007 -i /home/pi/linuxcnc/configs/rotary_table/rotary_table.ini
 Restart=always
 RestartSec=5
 
