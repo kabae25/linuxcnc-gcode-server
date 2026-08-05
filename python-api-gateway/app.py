@@ -26,8 +26,33 @@ mock_state = {
     "state": "ON"
 }
 
+import threading
+
+_socket_lock = threading.Lock()
+_global_socket = None
+
+def get_connected_socket(timeout: float = 3.0):
+    global _global_socket
+    if _global_socket is not None:
+        return _global_socket
+
+    s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    s.settimeout(timeout)
+    s.connect((GCODE_SERVER_HOST, GCODE_SERVER_PORT))
+    _global_socket = s
+    return _global_socket
+
+def close_global_socket():
+    global _global_socket
+    if _global_socket is not None:
+        try:
+            _global_socket.close()
+        except Exception:
+            pass
+        _global_socket = None
+
 def send_gcode_command(cmd: str, timeout: float = 3.0) -> str:
-    """Send a command string to linuxcnc-gcode-server via TCP socket."""
+    """Send a command string to linuxcnc-gcode-server via persistent TCP socket."""
     if MOCK_MODE:
         cmd_upper = cmd.strip().upper()
         if cmd_upper in ("M114_JSON", "M114"):
@@ -57,15 +82,28 @@ def send_gcode_command(cmd: str, timeout: float = 3.0) -> str:
             return "ok\n"
         return "ok\n"
 
-    sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-    sock.settimeout(timeout)
-    sock.connect((GCODE_SERVER_HOST, GCODE_SERVER_PORT))
-    if not cmd.endswith('\n'):
-        cmd += '\n'
-    sock.sendall(cmd.encode('utf-8'))
-    response = sock.recv(4096).decode('utf-8')
-    sock.close()
-    return response
+    with _socket_lock:
+        if not cmd.endswith('\n'):
+            cmd += '\n'
+
+        for attempt in range(2):
+            try:
+                sock = get_connected_socket(timeout)
+                sock.sendall(cmd.encode('utf-8'))
+                
+                response_bytes = bytearray()
+                while True:
+                    chunk = sock.recv(1024)
+                    if not chunk:
+                        raise socket.error("Connection closed by server")
+                    response_bytes.extend(chunk)
+                    if b'\n' in response_bytes:
+                        break
+                return response_bytes.decode('utf-8')
+            except Exception:
+                close_global_socket()
+                if attempt == 1:
+                    raise
 
 def get_current_position_data() -> dict:
     try:

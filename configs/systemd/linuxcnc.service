@@ -6,8 +6,8 @@ After=network.target
 Type=simple
 User=pi
 WorkingDirectory=/home/pi
-# Replace with your actual machine INI file path
-ExecStart=/usr/bin/linuxcnc /home/pi/linuxcnc/configs/rotary_table/rotary_table.ini
+# ExecStart uses -r flag to automatically restart without interactive Y/n prompt
+ExecStart=/usr/bin/linuxcnc -r /home/pi/linuxcnc/configs/rotary_table/rotary_table.ini
 Restart=always
 RestartSec=5
 

@@ -1351,11 +1351,11 @@ printf("LINELEN= %d\n", LINELEN);
         printf("error initializing sockets\n");
         exit(1);
     }
-    // init NML
-    if (tryNml(1, 1) != 0) {
-        printf("can't connect to LinuxCNC\n");
-        //thisQuit();
-	exit(1);
+    // init NML - retry for up to 15 seconds while LinuxCNC initializes
+    printf("Connecting to LinuxCNC NML...\n");
+    if (tryNml(15, 0.5) != 0) {
+        printf("can't connect to LinuxCNC (NML connection timed out after 15 seconds)\n");
+        exit(1);
     }
 
     // get current serial number, and save it for restoring when we quit

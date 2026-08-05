@@ -344,8 +344,11 @@ This instructs LinuxCNC to run natively without attempting to open any graphical
 If running manually from terminal:
 
 ```bash
-# 1. Start LinuxCNC background engine
-linuxcnc /path/to/your/rotary_table.ini &
+# 0. Kill any leftover background processes from previous runs
+make stop
+
+# 1. Start LinuxCNC background engine (piping 'Y' prevents hanging on 'Restart it? [Y/n]')
+echo "Y" | linuxcnc /path/to/your/rotary_table.ini &
 
 # 2. Build and start C++ G-Code Server
 make

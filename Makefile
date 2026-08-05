@@ -16,3 +16,11 @@ $(OBJ_DIR)/%.o: $(SRC_DIR)/%.cpp
 clean:
 	rm -rf $(OBJ_DIR)
 
+stop:
+	-pkill -9 -f linuxcnc || true
+	-pkill -9 milltask || true
+	-pkill -9 emcsvr || true
+	-pkill -9 halcmd || true
+	-pkill -9 linuxcnc-gcode-server || true
+
+
