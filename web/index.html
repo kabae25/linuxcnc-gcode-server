@@ -448,35 +448,22 @@
       document.getElementById('gaugeProgress').style.strokeDashoffset = offset;
     }
 
-    function connectWebSocket() {
-      const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-      const wsUrl = `${protocol}//${window.location.host}/ws/telemetry`;
-      
-      ws = new WebSocket(wsUrl);
-
-      ws.onopen = () => {
-        document.getElementById('statusDot').classList.remove('offline');
-        document.getElementById('statusText').innerText = 'Connected';
-      };
-
-      ws.onmessage = (event) => {
-        try {
-          const data = JSON.parse(event.data);
-          if (data.type === 'telemetry') {
-            updateGauge(data.position_deg);
-          }
-        } catch (e) {}
-      };
-
-      ws.onclose = () => {
+    async function fetchPosition() {
+      try {
+        const resp = await fetch('/api/v1/position');
+        const data = await resp.json();
+        if (data.ok) {
+          updateGauge(data.position_deg);
+          document.getElementById('statusDot').classList.remove('offline');
+          document.getElementById('statusText').innerText = 'Connected';
+        } else {
+          document.getElementById('statusDot').classList.add('offline');
+          document.getElementById('statusText').innerText = data.error || 'Connecting to LinuxCNC...';
+        }
+      } catch (e) {
         document.getElementById('statusDot').classList.add('offline');
-        document.getElementById('statusText').innerText = 'Reconnecting...';
-        setTimeout(connectWebSocket, 2000);
-      };
-
-      ws.onerror = () => {
-        ws.close();
-      };
+        document.getElementById('statusText').innerText = 'REST API Offline';
+      }
     }
 
     async function sendAction(url, payload = {}) {
@@ -487,7 +474,7 @@
           body: JSON.stringify(payload)
         });
         const res = await resp.json();
-        fetchPositionFallback();
+        fetchPosition();
       } catch (err) {
         console.error("Action error:", err);
       }
@@ -508,20 +495,9 @@
       }
     }
 
-    async function fetchPositionFallback() {
-      try {
-        const resp = await fetch('/api/v1/position');
-        const data = await resp.json();
-        if (data.ok) {
-          updateGauge(data.position_deg);
-        }
-      } catch (e) {}
-    }
-
-    // Init
-    connectWebSocket();
-    fetchPositionFallback();
-    setInterval(fetchPositionFallback, 1000);
+    // Init high-frequency position polling (5 Hz)
+    fetchPosition();
+    setInterval(fetchPosition, 200);
   </script>
 </body>
 </html>

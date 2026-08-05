@@ -97,7 +97,12 @@ def get_current_position_data() -> dict:
     except Exception as e:
         if MOCK_MODE:
             return {"ok": True, "axis": "A", "position_deg": mock_state["a_position"], "mock": True}
-        raise
+        return {
+            "ok": False,
+            "connected": False,
+            "position_deg": 0.0,
+            "error": f"LinuxCNC server disconnected on {GCODE_SERVER_HOST}:{GCODE_SERVER_PORT}"
+        }
 
 class RESTApiHandler(http.server.SimpleHTTPRequestHandler):
     def _set_headers(self, status=200, content_type="application/json"):
@@ -113,16 +118,15 @@ class RESTApiHandler(http.server.SimpleHTTPRequestHandler):
 
     def do_GET(self):
         parsed = urlparse(self.path)
-        path = parsed.path
+        path = parsed.path.rstrip("/")
+        if not path:
+            path = "/"
 
         if path == "/api/v1/position":
-            try:
-                data = get_current_position_data()
-                self._set_headers(200)
-                self.wfile.write(json.dumps(data).encode('utf-8'))
-            except Exception as e:
-                self._set_headers(503)
-                self.wfile.write(json.dumps({"error": str(e)}).encode('utf-8'))
+            data = get_current_position_data()
+            status_code = 200 if data.get("ok", True) else 503
+            self._set_headers(status_code)
+            self.wfile.write(json.dumps(data).encode('utf-8'))
 
         elif path == "/api/v1/status":
             try:
@@ -135,7 +139,7 @@ class RESTApiHandler(http.server.SimpleHTTPRequestHandler):
                 self.wfile.write(json.dumps(data).encode('utf-8'))
             except Exception as e:
                 self._set_headers(503)
-                self.wfile.write(json.dumps({"error": str(e)}).encode('utf-8'))
+                self.wfile.write(json.dumps({"ok": False, "error": str(e)}).encode('utf-8'))
 
         else:
             # Serve web UI static files
@@ -162,7 +166,7 @@ class RESTApiHandler(http.server.SimpleHTTPRequestHandler):
 
     def do_POST(self):
         parsed = urlparse(self.path)
-        path = parsed.path
+        path = parsed.path.rstrip("/")
         content_length = int(self.headers.get('Content-Length', 0))
         body_bytes = self.rfile.read(content_length) if content_length > 0 else b'{}'
         
