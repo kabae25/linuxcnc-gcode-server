@@ -1330,7 +1330,10 @@ printf("LINELEN= %d\n", LINELEN);
 //    }
 
     // get configuration information
-    iniLoad(emc_inifile);
+    if (iniLoad(emc_inifile) != 0) {
+        printf("ERROR: Could not open INI file '%s'. Please check file path.\n", emc_inifile);
+        exit(1);
+    }
 
     printf("Using ini file        : %s\n", emc_inifile);
     printf("Using nml file        : %s\n", emc_nmlfile);
