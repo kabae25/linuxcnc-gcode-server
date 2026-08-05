@@ -3,11 +3,13 @@ Description=LinuxCNC Core Motion Engine
 After=network.target
 
 [Service]
-Type=simple
+Type=forking
 User=cnc
 WorkingDirectory=/home/cnc
 ExecStart=/usr/bin/linuxcnc /home/cnc/linuxcnc/configs/rotarytable/rotarytable.ini
-Restart=always
+RemainAfterExit=yes
+ExecStop=/usr/bin/halcmd unload all
+Restart=on-failure
 RestartSec=5
 
 [Install]
