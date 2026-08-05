@@ -4,10 +4,10 @@ After=network.target
 
 [Service]
 Type=simple
-User=pi
-WorkingDirectory=/home/pi
+User=cnc
+WorkingDirectory=/home/cnc
 # ExecStart uses -r flag to automatically restart without interactive Y/n prompt
-ExecStart=/usr/bin/linuxcnc -r /home/pi/linuxcnc/configs/rotary_table/rotary_table.ini
+ExecStart=/usr/bin/linuxcnc -r /home/cnc/linuxcnc/configs/rotarytable/rotarytable.ini
 Restart=always
 RestartSec=5
 

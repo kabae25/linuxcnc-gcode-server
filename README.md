@@ -380,7 +380,7 @@ python3 python-api-gateway/app.py
 
 ---
 
-## 🍓 Raspberry Pi Headless & Systemd Auto-Start Setup (Zero-IP Configuration)
+## Raspberry Pi Headless & Systemd Auto-Start Setup (Zero-IP Configuration)
 
 To run the system on a Raspberry Pi as background services with **mDNS broadcasting** (`rotary-table.local`), follow these simple steps:
 

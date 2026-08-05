@@ -5,9 +5,9 @@ Wants=linuxcnc-gcode-server.service
 
 [Service]
 Type=simple
-User=pi
-WorkingDirectory=/home/pi/linuxcnc-gcode-server
-ExecStart=/usr/bin/python3 /home/pi/linuxcnc-gcode-server/python-api-gateway/app.py
+User=cnc
+WorkingDirectory=/home/cnc/linuxcnc-gcode-server
+ExecStart=/usr/bin/python3 /home/cnc/linuxcnc-gcode-server/python-api-gateway/app.py
 Restart=always
 RestartSec=5
 
