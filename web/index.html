@@ -1,12 +1,15 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>LinuxCNC Rotary Table Controller</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@500;700&display=swap" rel="stylesheet">
+  <link
+    href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@500;700&display=swap"
+    rel="stylesheet">
   <style>
     :root {
       --bg: #090d16;
@@ -63,6 +66,18 @@
       font-size: 1.1rem;
       font-weight: 700;
       color: var(--text);
+    }
+
+    .header-right {
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+    }
+
+    .header-controls {
+      display: flex;
+      align-items: center;
+      gap: 0.4rem;
     }
 
     .header-badges {
@@ -367,76 +382,76 @@
     }
   </style>
 </head>
+
 <body>
 
   <div class="container">
 
-    <!-- Header: Server Connection + Live Homing Status Badge -->
+    <!-- Header: Title + Controls + Live Status Badges -->
     <header>
       <div>
         <div class="header-title">LinuxCNC Rotary Table Controller</div>
       </div>
-      <div class="header-badges">
-        <!-- Homing Status Indicator -->
-        <div id="homingBadge" class="badge">
-          <div id="homingDot" class="badge-dot warning"></div>
-          <span id="homingText">NOT HOMED</span>
+      <div class="header-right">
+        <div class="header-controls">
+          <button class="btn btn-sm btn-success" onclick="sendAction('/api/v1/enable')">ENABLE</button>
+          <button class="btn btn-sm" onclick="sendAction('/api/v1/disable')">DISABLE</button>
+          <button class="btn btn-sm btn-danger" onclick="sendAction('/api/v1/abort')">ABORT</button>
         </div>
-        <!-- Connection Status -->
-        <div class="badge">
-          <div id="statusDot" class="badge-dot"></div>
-          <span id="statusText">Connected</span>
+        <div class="header-badges">
+          <!-- Homing Status Indicator -->
+          <div id="homingBadge" class="badge">
+            <div id="homingDot" class="badge-dot warning"></div>
+            <span id="homingText">NOT HOMED</span>
+          </div>
+          <!-- Connection Status -->
+          <div class="badge">
+            <div id="statusDot" class="badge-dot"></div>
+            <span id="statusText">Connected</span>
+          </div>
         </div>
       </div>
     </header>
 
-    <!-- Top Primary Controls Bar: ENABLE, DISABLE, HOME A, ABORT -->
-    <div class="top-control-bar">
-      <button class="btn btn-lg btn-success" onclick="sendAction('/api/v1/enable')">ENABLE</button>
-      <button class="btn btn-lg" onclick="sendAction('/api/v1/disable')">DISABLE</button>
-      <button class="btn btn-lg btn-primary" onclick="sendAction('/api/v1/home')">HOME A</button>
-      <button class="btn btn-lg btn-danger" onclick="sendAction('/api/v1/abort')">ABORT</button>
-    </div>
-
     <!-- Monospace Numeric Position Readout Panel -->
     <div class="panel">
-      <div class="panel-header">Numeric Angle Readout</div>
-      
+      <div class="panel-header">Position Readout</div>
+
       <div class="readout-grid">
         <div class="readout-cell">
-          <div class="readout-label">ACTUAL ANGLE (A-AXIS)</div>
-          <div id="actualPosReadout" class="readout-value">0.00°</div>
+          <div class="readout-label">POSITION (A-AXIS)</div>
+          <div id="actualPosReadout" class="readout-value">---</div>
         </div>
-        <div class="readout-cell">
-          <div class="readout-label">DISPLAY ANGLE (REF OFFSET)</div>
-          <div id="displayPosReadout" class="readout-value" style="color: #818cf8;">0.00°</div>
-        </div>
+        <button class="btn btn-lg btn-primary" onclick="sendAction('/api/v1/home')">HOME</button>
       </div>
 
-      <!-- Zero Offset Adjuster -->
-      <div class="offset-box">
-        <div class="offset-top">
-          <span>ZERO REFERENCE OFFSET</span>
-          <span id="offsetValText" style="font-family: 'JetBrains Mono', monospace; color: #34d399;">-71.0°</span>
-        </div>
-        <div class="offset-controls">
-          <input id="offsetSlider" type="range" min="-360" max="360" value="-71" step="0.5" style="flex: 1; accent-color: #34d399;" oninput="updateOffsetFromSlider(this.value)">
-          <input id="offsetInput" type="number" class="num-input" value="-71.0" step="0.5" onchange="updateOffsetFromInput(this.value)">
-          <button class="btn btn-sm" onclick="updateOffsetFromInput(-71.0)">-71° (HOME)</button>
-          <button class="btn btn-sm" onclick="setZeroOffsetHere()">ZERO HERE</button>
-          <button class="btn btn-sm" onclick="resetOffset()">RESET (0°)</button>
+      <!-- Motion Speed / Feedrate Control Panel -->
+      <div class="panel">
+        <div class="panel-header" style="margin-top: 0.25rem;">Step Jogging</div>
+
+        <div style="display: flex; flex-direction: column; gap: 0.5rem;">
+          <div class="step-bar">
+            <div class="step-btn" onclick="setStep(0.1, this)">0.1°</div>
+            <div class="step-btn active" onclick="setStep(1.0, this)">1.0°</div>
+            <div class="step-btn" onclick="setStep(10.0, this)">10.0°</div>
+            <div class="step-btn" onclick="setStep(45.0, this)">45.0°</div>
+            <div class="step-btn" onclick="setStep(90.0, this)">90.0°</div>
+            <div class="step-btn" onclick="setStep(180.0, this)">180°</div>
+            <div class="step-btn" onclick="setStep(360.0, this)">360°</div>
+          </div>
+
+          <div class="jog-row">
+            <button class="btn jog-btn" onclick="jog(-1)">JOG CCW (-)</button>
+            <button class="btn jog-btn" onclick="jog(1)">JOG CW (+)</button>
+          </div>
         </div>
       </div>
-    </div>
-
-    <!-- Motion Speed / Feedrate Control Panel -->
-    <div class="panel">
-      <div class="panel-header">Motion Speed & Feedrate Control</div>
 
       <div class="speed-panel">
         <div class="speed-top">
           <span>JOG & MOVE FEEDRATE (°/min)</span>
-          <span id="feedrateValText" style="font-family: 'JetBrains Mono', monospace; color: var(--accent);">1200 °/min</span>
+          <span id="feedrateValText" style="font-family: 'JetBrains Mono', monospace; color: var(--accent);">1200
+            °/min</span>
         </div>
         <div class="speed-presets">
           <div class="speed-btn" onclick="setFeedrate(300, this)">300°/min</div>
@@ -447,8 +462,10 @@
           <div class="speed-btn" onclick="setFeedrate(0, this)">RAPID (G0)</div>
         </div>
         <div style="display: flex; align-items: center; gap: 0.5rem; margin-top: 0.25rem;">
-          <input id="speedSlider" type="range" min="60" max="3600" value="1200" step="60" style="flex: 1; accent-color: var(--accent);" oninput="updateFeedrateFromSlider(this.value)">
-          <input id="speedInput" type="number" class="num-input" value="1200" min="0" max="10000" step="60" onchange="updateFeedrateFromInput(this.value)">
+          <input id="speedSlider" type="range" min="60" max="3600" value="1200" step="60"
+            style="flex: 1; accent-color: var(--accent);" oninput="updateFeedrateFromSlider(this.value)">
+          <input id="speedInput" type="number" class="num-input" value="1200" min="0" max="10000" step="60"
+            onchange="updateFeedrateFromInput(this.value)">
         </div>
       </div>
     </div>
@@ -469,29 +486,13 @@
         <button class="btn" onclick="moveToPreset(720)">720°</button>
       </div>
 
-      <div class="panel-header" style="margin-top: 0.25rem;">Step Jogging</div>
 
-      <div style="display: flex; flex-direction: column; gap: 0.5rem;">
-        <div class="step-bar">
-          <div class="step-btn" onclick="setStep(0.1, this)">0.1°</div>
-          <div class="step-btn active" onclick="setStep(1.0, this)">1.0°</div>
-          <div class="step-btn" onclick="setStep(10.0, this)">10.0°</div>
-          <div class="step-btn" onclick="setStep(45.0, this)">45.0°</div>
-          <div class="step-btn" onclick="setStep(90.0, this)">90.0°</div>
-          <div class="step-btn" onclick="setStep(180.0, this)">180°</div>
-          <div class="step-btn" onclick="setStep(360.0, this)">360°</div>
-        </div>
-
-        <div class="jog-row">
-          <button class="btn jog-btn" onclick="jog(-1)">JOG CCW (-)</button>
-          <button class="btn jog-btn" onclick="jog(1)">JOG CW (+)</button>
-        </div>
-      </div>
 
       <div class="panel-header" style="margin-top: 0.25rem;">Target Position Move</div>
 
       <div class="input-row">
-        <input id="targetPosInput" type="number" min="-720" max="720" step="0.1" class="num-input" style="flex: 1; text-align: left; padding: 0.6rem 0.75rem;" placeholder="Target angle (-720° to +720°)">
+        <input id="targetPosInput" type="number" min="-720" max="720" step="0.1" class="num-input"
+          style="flex: 1; text-align: left; padding: 0.6rem 0.75rem;" placeholder="Target angle (-720° to +720°)">
         <button class="btn btn-primary" onclick="sendTargetMove()">GO MOVE</button>
       </div>
     </div>
@@ -521,7 +522,7 @@
       currentFeedrate = val;
       document.querySelectorAll('.speed-btn').forEach(el => el.classList.remove('active'));
       if (elem) elem.classList.add('active');
-      
+
       document.getElementById('speedInput').value = val;
       if (val > 0) {
         document.getElementById('speedSlider').value = val;
@@ -567,7 +568,7 @@
     function updateReadouts(rawAngleDeg) {
       lastRawPosition = rawAngleDeg;
       document.getElementById('actualPosReadout').innerText = `${rawAngleDeg.toFixed(2)}°`;
-      
+
       let effectiveAngle = rawAngleDeg + zeroOffset;
       document.getElementById('displayPosReadout').innerText = `${effectiveAngle.toFixed(2)}°`;
     }
@@ -607,7 +608,7 @@
       try {
         const resp = await fetch(url, {
           method: 'POST',
-          headers: {'Content-Type': 'application/json'},
+          headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(payload)
         });
         const res = await resp.json();
@@ -651,4 +652,5 @@
     setInterval(fetchPosition, 200);
   </script>
 </body>
+
 </html>

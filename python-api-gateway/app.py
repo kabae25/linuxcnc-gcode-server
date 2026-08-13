@@ -69,7 +69,11 @@ def send_gcode_command(cmd: str, timeout: float = 3.0) -> str:
         elif "G0" in cmd_upper or "G1" in cmd_upper:
             match = re.search(r'A\s*(-?\d+(?:\.\d+)?)', cmd_upper)
             if match:
-                mock_state["a_position"] = float(match.group(1))
+                val = float(match.group(1))
+                if "G91" in cmd_upper:
+                    mock_state["a_position"] += val
+                else:
+                    mock_state["a_position"] = val
             return "ok\n"
         elif "HOME" in cmd_upper:
             mock_state["homed"] = True
@@ -222,16 +226,17 @@ class RESTApiHandler(http.server.SimpleHTTPRequestHandler):
         try:
             if path == "/api/v1/move":
                 pos = float(payload.get("position", 0.0))
-                mode = str(payload.get("mode", "absolute"))
+                mode = str(payload.get("mode", "absolute")).lower()
                 feedrate_val = float(payload["feedrate"]) if payload.get("feedrate") and float(payload["feedrate"]) > 0 else None
 
-                if mode.lower() == "relative":
-                    current = get_current_position_data()["position_deg"]
-                    target = current + pos
+                if mode == "relative":
+                    gcode = f"G91 G1 A{pos:.4f} F{feedrate_val:.2f} G90" if feedrate_val else f"G91 G0 A{pos:.4f} G90"
+                    target = pos
                 else:
+                    pos = max(-720.0, min(720.0, pos))
+                    gcode = f"G90 G1 A{pos:.4f} F{feedrate_val:.2f}" if feedrate_val else f"G90 G0 A{pos:.4f}"
                     target = pos
 
-                gcode = f"G90 G1 A{target:.4f} F{feedrate_val:.2f}" if feedrate_val else f"G90 G0 A{target:.4f}"
                 res = send_gcode_command(gcode)
                 response_data = {"status": "ok", "command": gcode, "target_position_deg": target, "raw_response": res.strip()}
 
@@ -240,18 +245,35 @@ class RESTApiHandler(http.server.SimpleHTTPRequestHandler):
                 step = float(payload.get("step", 1.0))
                 feedrate_val = float(payload["feedrate"]) if payload.get("feedrate") and float(payload["feedrate"]) > 0 else None
 
-                dir_factor = 1.0 if direction >= 0 else -1.0
+                dir_factor = -1.0 if direction < 0 else 1.0
+                delta = step * dir_factor
                 current = get_current_position_data()["position_deg"]
-                target = current + (step * dir_factor)
+                target = current + delta
 
-                gcode = f"G90 G1 A{target:.4f} F{feedrate_val:.2f}" if feedrate_val else f"G90 G0 A{target:.4f}"
+                if feedrate_val:
+                    gcode = f"G91 G1 A{delta:.4f} F{feedrate_val:.2f} G90"
+                else:
+                    gcode = f"G91 G0 A{delta:.4f} G90"
+
                 res = send_gcode_command(gcode)
-                response_data = {"status": "ok", "command": gcode, "target_position_deg": target, "raw_response": res.strip()}
+                response_data = {
+                    "status": "ok",
+                    "command": gcode,
+                    "delta_deg": delta,
+                    "target_position_deg": target,
+                    "raw_response": res.strip()
+                }
 
             elif path == "/api/v1/preset":
                 preset_deg = float(payload.get("preset_deg", 0.0))
+                preset_deg = max(-720.0, min(720.0, preset_deg))
                 feedrate_val = float(payload["feedrate"]) if payload.get("feedrate") and float(payload["feedrate"]) > 0 else None
-                gcode = f"G90 G1 A{preset_deg:.4f} F{feedrate_val:.2f}" if feedrate_val else f"G90 G0 A{preset_deg:.4f}"
+
+                if feedrate_val:
+                    gcode = f"G90 G1 A{preset_deg:.4f} F{feedrate_val:.2f}"
+                else:
+                    gcode = f"G90 G0 A{preset_deg:.4f}"
+
                 res = send_gcode_command(gcode)
                 response_data = {"status": "ok", "command": gcode, "target_position_deg": preset_deg, "raw_response": res.strip()}
 
