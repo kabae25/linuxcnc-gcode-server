@@ -249,11 +249,12 @@ class RESTApiHandler(http.server.SimpleHTTPRequestHandler):
                 delta = step * dir_factor
                 current = get_current_position_data()["position_deg"]
                 target = current + delta
+                target = max(-720.0, min(720.0, target))
 
                 if feedrate_val:
-                    gcode = f"G91 G1 A{delta:.4f} F{feedrate_val:.2f} G90"
+                    gcode = f"G90 G1 A{target:.4f} F{feedrate_val:.2f}"
                 else:
-                    gcode = f"G91 G0 A{delta:.4f} G90"
+                    gcode = f"G90 G0 A{target:.4f}"
 
                 res = send_gcode_command(gcode)
                 response_data = {

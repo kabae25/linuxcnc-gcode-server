@@ -594,7 +594,11 @@
       }
     }
 
+    let isPolling = false;
+
     async function fetchPosition() {
+      if (isPolling) return;
+      isPolling = true;
       try {
         const resp = await fetch('/api/v1/position');
         const data = await resp.json();
@@ -620,6 +624,8 @@
         const statusText = document.getElementById('statusText');
         if (statusDot) statusDot.className = "badge-dot offline";
         if (statusText) statusText.innerText = 'Offline';
+      } finally {
+        isPolling = false;
       }
     }
 
@@ -634,7 +640,7 @@
       } catch (err) {
         console.error("Action error:", err);
       } finally {
-        setTimeout(fetchPosition, 100);
+        setTimeout(fetchPosition, 50);
       }
     }
 
@@ -669,7 +675,9 @@
     // Init
     initOffsetUI();
     fetchPosition();
-    setInterval(fetchPosition, 200);
+    setInterval(() => {
+      if (!isPolling) fetchPosition();
+    }, 100);
   </script>
 </body>
 
