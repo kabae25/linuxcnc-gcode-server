@@ -1,509 +1,328 @@
 # linuxcnc-gcode-server
-Allows connecting to a LinuxCNC installation and executing commands, similar to linuxcncrsh.
 
-The motivation was to allow easier control by OpenPNP. To this end some non-standard (for LinuxCNC) commands will be intercepted and handled either within this server, or translated into something LinuxCNC can understand:
-- M115 - firmware version
-- M114 - current position
-- M105 - read analog sensor
-- M400 - wait for completion
-- BEGINSUB - start batch
-- ENDSUB - send batch
-
-All other g-code commands will be passed through unchanged, and are relayed to LinuxCNC as MDI commands.
-
-<br>
-
-## Non-standard commands
-
-These commands are to let OpenPNP fetch some information from the LinuxCNC side, and to help the synchronization between the two systems.
-
-#### M115
-No interaction with LinuxCNC. Returns a string like:  
-
-`ok FIRMWARE_NAME:linuxcnc-gcode, FIRMWARE_VERSION:0.1`
-
-#### M114
-Returns the current position of the machine, eg.  
-
-`ok X:1.200000 Y:3.400000 Z:5.600000 A:7.800000`
-
-#### M105
-Returns the values of the first four analog inputs (motion.analog-in-00 etc)  
-
-`ok T0:0.147000 T1:0.7890000 T2:0.000000 T3:0.000000`
-
-#### M400
-
-This command will cause all subsequent commands to be deferred until the machine is idle.
-
-#### BEGINSUB, ENDSUB
-See the section below about blending.
-
-<br>
-
-## LinuxCNC operator commands
-
-In addition to plain g-code, you can use the commands below to carry out some common operator actions. Note that some of these will be ignored if LinuxCNC is currently running a program.
-
-#### status
-Returns information about estop/machine status, task mode, axis homed, and work position, eg.:
-
-`ESTOP MANUAL (0 0 0 0) -97.146500 -14.642751 2.000000 0.000000`
-
-`ON MDI (1 1 1 1) 100.003510 -0.007745 0.005019 0.000000`
-
-#### enable
-Same as clearing estop and then toggling the machine on.
-#### home
-Same as clicking "home all" in Axis GUI. Already homed axes will be ignored. There is currently a ten second timeout, so if your homing takes longer this will incorrectly report a failure. To home an individual axis, add the axis index, eg. "home 0".
-#### abort
-Same as hitting ESC or the stop button in Axis GUI.
-#### manual
-Attempts to enter manual mode, which is necessary for manual jogging of axes.
-#### mdi
-Attempts to enter MDI mode. (MDI mode will automatically be entered when giving g-code commands.)
-#### open &lt;filename&gt;
-Attempts to open the given gcode file. You must specify the full path for the file.
-#### run
-Same as clicking the run button in Axis GUI.
-#### pause
-Same as clicking the pause button in Axis GUI.
-#### resume
-Same as resuming after a pause in Axis GUI.
-#### file
-Displays the currently loaded filename
-
-<br>
-
-## Building
-
-Requires the LinuxCNC headers and libs available. On my system I built LinuxCNC from source which produced the package "linuxcnc-uspace-dev", which I then installed. Not sure how you would get this by other methods...
-
-With the requirements in place, you should be able to just run `make` to build.
-
-This server uses NML to interface with LinuxCNC. It expects to find the NML definition file at /usr/share/linuxcnc/linuxcnc.nml which is probably where it will be unless you have really been messing around with things.
-
-<br>
-
-## Basic usage
-
-First startup LinuxCNC, then run this server. By default it will listen on port 5007, or you can change this with the -p option, eg.
-
-    ./linuxcnc-gcode-server -p 5050
-
-To check connection to the server, you can use a telnet connection like:
-
-    telnet 192.168.1.140 5007
-
-If the machine is enabled and homed, you should be able to move it around with g-code commands.
-
-![alt text](https://www.iforce2d.net/tmp/openpnp/Selection_1180.png)
-
-You can use the -e option to instruct the machine to be enabled and homed when the server starts, eg.
-
-    ./linuxcnc-gcode-server -e
-
-This is the equivalent of clicking the e-stop button off and the machine power button on, and then homing each axis that is not already homed. This is probably not advisable on a real machine, but it's quite convenient during development when using a dummy machine, to save some repetitive clicking. It also allows you to run a headless LinuxCNC without any traditional user interface, and still enable the machine and run g-code.
-
-You can optionally specify the .ini file of your machine with the -i parameter, eg.:
-
-    ./linuxcnc-gcode-server -i /path/to/your/machine.ini
-
-If you want to home the machine via this server then this parameter is not really optional because reading the .ini file is how the server obtains some basic information like how many axes your machine has. But if the machine is already homed, you can still use the server to run g-code and most other actions without giving the .ini file parameter.
-
-
-<br>
-
-## Video demo
-
-You can see a video demonstrating basic usage here. Note that this video was made before some of the options mentioned above existed. For best results please specify your machine .ini file with the -i option when starting the server to know basic but important info like how many axes there are :)
-
-[![Watch the video](https://img.youtube.com/vi/ib_G0eyn5FM/hqdefault.jpg)](https://www.youtube.com/embed/ib_G0eyn5FM)
-
-See the 'headless' subfolder of this repository for the startup/shutdown scripts used in the video.
-
-<br>
-
-## Usage with OpenPNP
-
-Set up a GCodeDriver like this:
-
-![alt text](https://www.iforce2d.net/tmp/openpnp/Selection_1177.png)
-
-In the `Driver Settings` tab, clicking on `Detect Firmware` should show some output like this:
-
-![alt text](https://www.iforce2d.net/tmp/openpnp/Selection_1179.png)
-
-If the gcode server is stopped and restarted, OpenPNP will lose communication with it. You can let it re-connect by clicking the power button off, then on again.
-
-![alt text](https://www.iforce2d.net/tmp/openpnp/Selection_1181.png)
-
-Note that OpenPNP does not read the current position of the machine when connecting, so if the machine was moved by commands outside OpenPNP, they will not be in sync until OpenPNP issues the next move command.
-
-<br>
-
-Some commonly used settings are listed below (see OpenPNP's [GcodeDriver Command Reference](https://github.com/openpnp/openpnp/wiki/GcodeDriver_Command-Reference) for more details).
-
-
-### COMMAND_CONFIRM_REGEX
-
-The standard rule as suggested by OpenPNP is fine:
-
-    ^ok.*
-
-<br>
-
-### POSITION_REPORT_REGEX
-
-The standard rule as suggested by OpenPNP is fine:
-
-    ^ok X:(?<x>-?\d+\.\d+) Y:(?<y>-?\d+\.\d+) Z:(?<z>-?\d+\.\d+) A:(?<rotation>-?\d+\.\d+)
-
-<br>
-
-### COMMAND_ERROR_REGEX
-
-The standard rule as suggested by OpenPNP is fine:
-
-    ^error:.*
-
-<br>
-
-### ACTUATE_BOOLEAN_COMMAND
-
-You can use LinuxCNC's standard M64 and M65 to switch digital outputs on and off. The value P0, P1 etc maps to motion.digital-out-00, motion.digital-out-01 etc. There are various formats that will work for defining this in OpenPNP, I have found this style works ok:
-
-    M{True:64}{False:65} P0
-
-<br>
-
-### MOVE_TO_COMMAND
-
-OpenPNP will probably suggest something like this which will work fine:
-
-    G1 {X:X%.3f} {Y:Y%.3f} {Z:Z%.3f} {A:A%.4f} {FeedRate:F%.0f}
-
-<br>
-
-### MOVE_TO_COMPLETE_COMMAND
-
-This should be set to M400:
-
-    M400
-
-<br>
-
-### ACTUATOR_READ_COMMAND
-I have not tested this, but I think it would be just:
-
-    M105
-
-This will always return four values, for motion.analog-in-00, motion.analog-in-01 etc.
-
-<br>
-
-### ACTUATOR_READ_REGEX
-I have not tested this, but I think it would be like:
-
-    ^ok T0:(?<Value>-?\d+\.\d+)
-
-That would be ok if you wanted to read motion.analog-in-00. But because M105 always returns multiple values, to read T1, T2 etc. you would need a a little extra .* in the regex to skip any preceding values:
-
-    ^ok.* T2:(?<Value>-?\d+\.\d+)
-
-<br>
-
-## Setting acceleration
-
-To have OpenPNP specify acceleration for moves, the `Motion Control Type` option in the `Driver Settings` tab must be set to a type that controls acceleration, eg. EuclideanAxisLimits, ConstantAcceleration. Then in the MOVE_TO_COMMAND definition you can prepend a rule to output an acceleration setting, for example:
-
-![alt text](https://www.iforce2d.net/tmp/openpnp/Selection_1182.png)
-
-This will produce a g-code command like `M171 P125`. The M171 is not a standard g-code, it is a [user defined command](https://linuxcnc.org/docs/devel/html/gcode/m-code.html#mcode:m100-m199) that you must create on the LinuxCNC machine. The exact number 171 is not really important, it just needs to be from 100 to 199.
-
-To create the user defined command, you need to make a bash script with the same name, no extension, upper-case M. For this example the file name would be "M171". This script must be placed in the directory specified by PROGRAM_PREFIX in your LinuxCNC .ini file:
-
-![alt text](https://www.iforce2d.net/tmp/openpnp/Selection_1183.png)
-
-The contents of this bash script should be:
-
-    #!/bin/bash
-    acceleration=$1
-    halcmd setp ini.x.max_acceleration $acceleration
-    halcmd setp ini.y.max_acceleration $acceleration
-    halcmd setp ini.z.max_acceleration $acceleration
-    exit 0
-
-<br>
-
-## Blending
-LinuxCNC is capable of blending consecutive segments together when G64 is in effect, but unfortunately sending commands via the MDI interface does not always allow this to happen. In my experiments, blending typically occurs in only 70-80% of cases where it would normally be expected. This is due to the lack of synchronization between the timing of commands entering the queue, and when those commands are allowed to start execution. For example if you issue two MDI commands and the machine starts executing the first one before the second has been received, blending cannot occur.
-
-To work around this problem, multiple commands can be grouped into a batch for processing as a cohesive set by enclosing them inside `beginsub` and `endsub` keywords. This will cause the commands to be stored in a buffer and only sent to LinuxCNC when all commands of the group are known, and full blending can be achieved reliably. For example with this input:
-
-    beginsub
-    g1 x10 y20
-    g1 x25 y25
-    g1 x40 y20
-    endsub
-
-... nothing would happen until the `endsub`, at which point all the commands will be sent.
-
-To ensure that the grouped commands are all processed together, a temporary [o-code subroutine](https://linuxcnc.org/docs/html/gcode/o-code.html) file is created and executed. This file will be created in the location specified by the RS247NGC:SUBROUTINE_PATH property of your .ini file:
-
-![alt text](https://www.iforce2d.net/tmp/openpnp/Selection_1184.png)
-
-Since the subroutine file is only temporary and will be written and read potentially thousands of times during a pick and place job, it might be preferable to place it in RAM instead of on hard disk. You can find some info about which paths to use in [this Stack Overflow discussion](https://stackoverflow.com/questions/10982911/creating-temporary-files-in-bash). In the screenshot above, the /run/user/1000 path is actually a RAM location, and as such all the 'files' it contains will be lost when the computer is shut down. So if you already have your own subroutine files, you might actually want to use a normal hard disk location, or maybe copy them into the RAM location each time you start LinuxCNC.
-
-Because SUBROUTINE_PATH is defined in your .ini file, to use this feature you must provide the .ini file when starting the server, eg.:
-
-    ./linuxcnc-gcode-server -i /path/to/your/machine.ini
-
-You can check if these paths are correct when the server starts up:
-
-![alt text](https://www.iforce2d.net/tmp/openpnp/Selection_1186.png)
-
-Finally, to let OpenPNP manage these batches of commands, you can set up your `MOVE_TO_COMMAND` and `MOVE_TO_COMPLETE_COMMAND` so that a batch will be started before moves are issued, and finalized before the M400 'wait' command :
-
-![alt text](https://www.iforce2d.net/tmp/openpnp/Selection_1189.png)
-
-![alt text](https://www.iforce2d.net/tmp/openpnp/Selection_1190.png)
-
-A `beginsub` while a batch is already in progress has no effect.
-
-When using the OpenPNP user interface to jog the machine, the MOVE_TO_COMPLETE_COMMAND is not used, so there will be no `endsub` to complete the batch. To workaround this, a timeout is used to automatically send the batch to LinuxCNC if no further commands are given within a certain time. The default timeout is 250ms, you can change this with the -t parameter:
-
-    ./linuxcnc-gcode-server -t 750
-
-<b>Note:</b> even when using batches to process commands as a group, there are still other factors that can interrupt blending, like the M64/M65
-commands or setting the acceleration via bash script as mentioned above.
-
-<b>Note:</b> the commands within a `beginsub`/`endsub` block are passed to LinuxCNC without any special handling, so you cannot use the 'non-standard' commands (M115, M114, M105, M400). These will be ignored inside a batch.
-
-<br>
-
-## Multiple clients
-
-Although this server is capable of communicating with multiple clients at the same time, that's not really the intended use case. The main issue is that the `beginsub` / `endsub` status is tracked globally on the server, not per client. So one client can start the batch and a different client could end it. If you want to switch between using different clients, just make sure there is no ongoing subroutine batch.
-
-<br>
-
-## Single-Axis Rotary Table Control (REST API, Web UI, Tkinter GUI & IDLE)
-
-This codebase includes a single-axis (A-axis) rotary table controller system with a complete suite of interfaces:
-
-1. **Python REST API Gateway** ([python-api-gateway/app.py](python-api-gateway/app.py)): Standard-library HTTP REST server allowing external systems (e.g. Python test runners) to query and command the rotary table.
-2. **Web Dashboard** ([web/index.html](web/index.html)): Modern browser UI featuring a visual circular dial gauge, position readout in degrees, quick preset grid (0° to 360°), step jog controls (+ / -), and safety buttons.
-3. **Tkinter Desktop GUI** ([gui/tkinter_app.py](gui/tkinter_app.py)): Standalone desktop application with live position readout, jog controls, preset buttons, and manual G-code entry.
-4. **Interactive Python IDLE Module** ([rotary.py](rotary.py)): Interactive shell module for Python IDLE/REPL. All commands route through the REST Gateway to maintain identical behavior across all interfaces.
-5. **Zero-Dependency Python SDK** ([python-api-gateway/client.py](python-api-gateway/client.py)): `RotaryTableClient` SDK for programmatic integration into Python test suites.
+A high-performance C++ TCP socket server and Python REST API Gateway for **LinuxCNC**, providing remote G-code execution, machine control, OpenPNP integration, and a complete suite of single-axis rotary table control interfaces (Web Dashboard, Tkinter Desktop App, Python IDLE Shell, and Python SDK).
 
 ---
 
-### System Architecture
+## 🌟 Features Overview
 
-```
-┌──────────────────────────────────────────────────────────────────────────┐
-│                   External Python Test System / IDLE                     │
-└──────────────────────────────────────────────────────────────────────────┘
-                                     │ (REST API / client.py)
-                                     ▼
-┌──────────────────────────────────────────────────────────────────────────┐
-│                    Python REST Gateway (app.py)                          │
-│                                                                          │
-│  - GET  /api/v1/position    -> Read table angle in degrees (e.g. 180°) │
-│  - POST /api/v1/move        -> Absolute/Relative move (G0 A<angle>)     │
-│  - POST /api/v1/jog         -> Step jog + / -                           │
-│  - POST /api/v1/preset      -> Move to quick preset angle                 │
-│  - POST /api/v1/home        -> Home A-axis                              │
-│  - POST /api/v1/enable      -> Clear ESTOP & enable machine             │
-│  - POST /api/v1/abort       -> Abort motion                             │
-└──────────────────────────────────────────────────────────────────────────┘
-           │                                          │
-           ▼ (HTTP / Localhost)                       ▼ (TCP Socket / JSON)
-┌──────────────────────────────────────┐   ┌──────────────────────────────┐
-│  Web Dashboard / Tkinter Desktop App │   │  LinuxCNC NML Core Server    │
-│  (index.html / tkinter_app.py)       │   │  (linuxcnc-gcode-server)     │
-└──────────────────────────────────────┘   └──────────────────────────────┘
-```
+- **C++ Socket Server (`linuxcnc-gcode-server`)**:
+  - Direct LinuxCNC interface via NML socket buffer.
+  - Custom G-code extensions: `M114` (position readout), `M114_JSON` (structured JSON position), `M115` (firmware query), `M105` (analog input sensing), `M400` (synchronization lock).
+  - Machine Control Commands: `STATUS`, `STATUS_JSON`, `ENABLE`, `DISABLE`, `HOME`, `ABORT`, `MANUAL`, `MDI`, `OPEN`, `RUN`, `PAUSE`, `RESUME`, `FILE`.
+  - Motion Blending & Subroutine Buffering (`BEGINSUB` / `ENDSUB`): Solves MDI motion blending issues by compiling command batches into temporary O-code subroutines, with automatic timeout auto-flush (`-t`).
+  - Headless startup mode (`-e`) for automatic ESTOP reset and homing on boot.
+
+- **Zero-Dependency Python REST API Gateway (`python-api-gateway/app.py`)**:
+  - Built using Python standard library (`http.server`, `socketserver`), requiring **no 3rd-party pip packages**.
+  - Comprehensive REST API for position monitoring, machine state query, absolute/relative move execution, step jogging, preset moves, power control, and raw G-code.
+  - Persistent TCP socket connection to C++ server with automatic reconnect and thread safety.
+  - **Mock Mode** (`MOCK_MODE=true`): Full API & Web UI simulation mode for offline development and testing without LinuxCNC hardware.
+  - Integrated static web server serving the Web UI.
+
+- **Modern Web Dashboard UI (`web/index.html`)**:
+  - Responsive dark-mode interface built with Vanilla CSS, Inter, and JetBrains Mono typography.
+  - Real-time 36px monospace position readout with 200ms polling.
+  - Dynamic status badges: Connection state (`Connected` / `Offline`), Homing status (`HOMED` / `NOT HOMED`), and Machine power state (`ENABLED` / `DISABLED` / `ESTOP`).
+  - Motion Speed & Feedrate Controls: Quick presets (`300°/min` to `3600°/min` + `RAPID G0`), synchronized range slider, and direct numeric input.
+  - Quick Angle Presets (-720° to +720°), step jog selector (`0.1°` to `360°`), and target position move input.
+
+- **Tkinter Desktop GUI (`gui/tkinter_app.py`)**:
+  - Standalone desktop application with live angle readout, quick presets, step jogging, target position moves, and machine action controls.
+
+- **Interactive Python Shell / IDLE Module (`rotary.py`)**:
+  - REPL-friendly commands for Python IDLE (`pos()`, `move(360)`, `move_rel(45)`, `preset(90)`, `jog_cw(10)`, `jog_ccw(10)`, `home()`, `enable()`, `abort()`, `status()`, `gcode()`).
+
+- **Zero-Dependency Python Client SDK (`python-api-gateway/client.py`)**:
+  - `RotaryTableClient` SDK for programmatic integration into hardware-in-the-loop (HIL) test harnesses (`pytest`, `unittest`).
+
+- **Raspberry Pi & Zero-IP Systemd Setup**:
+  - Native headless execution with `DISPLAY = dummy`.
+  - Avahi mDNS broadcast (`rotary-table.local`).
+  - Systemd background services (`linuxcnc.service`, `linuxcnc-gcode-server.service`, `rotary-api-gateway.service`).
+
+- **Automated Test Suite (`tests/test_api.py`)**:
+  - `unittest` suite verifying REST API endpoints, Python SDK, and IDLE shell module using Mock Mode.
 
 ---
 
-### Simplified System Setup
+## ⚡ Quick Start & System Setup
 
-#### 1. Set `DISPLAY = dummy` in your Machine `.ini` File
-Open your machine configuration `.ini` file (e.g. `rotary_table.ini`) and set `DISPLAY = dummy` under the `[DISPLAY]` section:
+### 1. Configure LinuxCNC Machine `.ini` File
+Set `DISPLAY = dummy` under the `[DISPLAY]` section in your machine `.ini` file (e.g. `rotary_table.ini`). This allows LinuxCNC to run natively without requiring a graphical display server.
 
 ```ini
 [DISPLAY]
 DISPLAY = dummy
 ```
-This instructs LinuxCNC to run natively without attempting to open any graphical window, eliminating the need for complex wrapper scripts or virtual display servers.
 
-#### 2. Manual CLI Launch
-If running manually from terminal:
-
+### 2. Build & Launch System
 ```bash
-# 0. Kill any leftover background processes from previous runs
+# 0. Kill any stale LinuxCNC processes
 make stop
 
-# 1. Start LinuxCNC background engine (piping 'Y' prevents hanging on 'Restart it? [Y/n]')
-echo "Y" | linuxcnc /path/to/your/rotary_table.ini &
+# 1. Start LinuxCNC background engine
+echo "Y" | linuxcnc /path/to/your/rotary_table.ini
 
-# 2. Build and start C++ G-Code Server
+# 2. Build and start C++ G-Code Server (Port 5007)
 make
-./linuxcnc-gcode-server -p 5007 -i /path/to/your/rotary_table.ini &
+./linuxcnc-gcode-server -p 5007 -i /path/to/your/rotary_table.ini
 
-# 3. Start Python REST Gateway & Web UI
+# 3. Start Python REST Gateway & Web UI (Port 8000)
 python3 python-api-gateway/app.py
 ```
 
-#### 3. Control via Web Dashboard, Tkinter GUI, or IDLE
-- **Web Dashboard**: Navigate to [http://localhost:8000](http://localhost:8000)
-- **Tkinter Desktop GUI**: `python3 gui/tkinter_app.py`
-- **Interactive Python IDLE**:
+### 3. Launch in Offline Mock Mode (No Hardware Required)
+To run and develop without LinuxCNC hardware connected:
+```bash
+MOCK_MODE=true python3 python-api-gateway/app.py
+```
+
+### 4. Access Interfaces
+- 🌐 **Web Dashboard**: Open [http://localhost:8000](http://localhost:8000) in your browser.
+- 🖥️ **Tkinter Desktop GUI**: Run `python3 gui/tkinter_app.py`.
+- 🐍 **Interactive Python IDLE**:
   ```python
   >>> from rotary import *
-  >>> pos()            # Reads position: 0.00°
-  >>> move(360)        # Executes G0 A360
-  >>> jog_cw(10)       # Step jog +10° CW
+  >>> pos()            # Read angle: 0.00°
+  >>> move(360)        # Move to 360° (G0 A360)
+  >>> jog_cw(10)       # Jog +10° CW
   >>> home()           # Home A-axis
   ```
-- **Python Automation SDK**:
+- 🧪 **Python SDK for Automated Testing**:
   ```python
   from client import RotaryTableClient
   client = RotaryTableClient("http://localhost:8000")
-  client.move_to(360.0)
+  client.move_to(180.0)
   ```
 
-<br>
+---
+
+## 🛠️ C++ G-Code Server & Operator Commands
+
+The C++ server listens on TCP port `5007` (default) and executes G-code MDI commands or server management directives.
+
+### Server Command-Line Arguments
+| Option | Long Option | Description |
+| :--- | :--- | :--- |
+| `-p <port>` | `--port` | Sets TCP listen port (default: `5007`). |
+| `-e` | `--enable` | Auto-clears ESTOP, turns machine state ON, and homes all axes on startup. |
+| `-i <inifile>`| `--inifile` | Specifies machine `.ini` file path (required for axis count and subroutine batching). |
+| `-t <ms>` | `--timeout` | Sets auto-send batch timeout in milliseconds (default: `250`). |
+| `-h` | `--help` | Displays CLI usage instructions. |
+
+### Non-Standard & Extended Commands
+- **`M115`**: Firmware query. Returns `ok FIRMWARE_NAME:linuxcnc-gcode, FIRMWARE_VERSION:0.1`.
+- **`M114`**: Position query. Returns `ok X:0.000000 Y:0.000000 Z:0.000000 A:0.000000`.
+- **`M114_JSON`**: Structured JSON position query. Returns `{"ok":true,"x":0.0,"y":0.0,"z":0.0,"a":180.0,"homed":true,"state":"ON"}`.
+- **`M105`**: Reads first 4 analog inputs (`motion.analog-in-00` through `03`).
+- **`M400`**: Defer subsequent execution until machine completes current movement and becomes idle.
+- **`BEGINSUB` / `ENDSUB`**: Groups move commands into a buffered O-code subroutine batch for seamless G64 blending.
+
+### LinuxCNC Operator Commands
+- **`STATUS`**: Returns plaintext status string (ESTOP/ON, mode, homed joints, workspace position).
+- **`STATUS_JSON`**: Returns structured JSON machine status dictionary (`state`, `mode`, `homed` array, `workspace` coordinates).
+- **`ENABLE`**: Clears ESTOP and turns machine power ON.
+- **`DISABLE`**: Powers machine OFF / triggers ESTOP.
+- **`HOME` / `HOME <axis_index>`**: Homes all axes (or a specific axis index, e.g. `HOME 3`).
+- **`ABORT`**: Immediately stops active machine movement.
+- **`MANUAL`**: Switches LinuxCNC task mode to Manual mode.
+- **`MDI`**: Switches LinuxCNC task mode to MDI mode (automatically invoked during G-code execution).
+- **`OPEN <filename>`**: Opens specified G-code file.
+- **`RUN`**: Starts program execution.
+- **`PAUSE` / `RESUME`**: Pauses and resumes program execution.
+- **`FILE`**: Displays currently open file path.
 
 ---
 
-## Raspberry Pi Headless & Systemd Auto-Start Setup (Zero-IP Configuration)
+## 🌐 REST API Gateway (`/api/v1/`)
 
-To run the system on a Raspberry Pi as background services with **mDNS broadcasting** (`rotary-table.local`), follow these simple steps:
+The REST Gateway runs on port `8000` (default) and translates JSON HTTP requests into C++ server commands.
+
+| Endpoint | Method | Payload Example | Description |
+| :--- | :--- | :--- | :--- |
+| `/api/v1/position` | `GET` | — | Returns current angle, homing state, and machine status. |
+| `/api/v1/status` | `GET` | — | Returns detailed machine status dictionary. |
+| `/api/v1/move` | `POST` | `{"position": 360, "mode": "absolute", "feedrate": 1200}` | Executes absolute or relative move (`G90`/`G91`, `G0`/`G1`). Position constrained to [-720°, +720°]. |
+| `/api/v1/jog` | `POST` | `{"direction": 1, "step": 10.0, "feedrate": 1200}` | Performs step jog CW (+1) or CCW (-1). |
+| `/api/v1/preset` | `POST` | `{"preset_deg": 90, "feedrate": 1200}` | Moves table to preset angle. |
+| `/api/v1/home` | `POST` | `{}` | Homes A-axis. |
+| `/api/v1/enable` | `POST` | `{}` | Clears ESTOP and enables machine power. |
+| `/api/v1/disable` | `POST` | `{}` | Disables machine power. |
+| `/api/v1/abort` | `POST` | `{}` | Aborts motion immediately. |
+| `/api/v1/gcode` | `POST` | `{"gcode": "G0 A180"}` | Executes raw G-code string. |
 
 ---
 
-### 1. Install & Configure Avahi (mDNS)
+## 🖥️ User Interfaces
+
+### 1. Web Dashboard (`web/index.html`)
+Open `http://localhost:8000` in any web browser to access the control dashboard:
+- **Numeric Position Readout**: Large 36px monospace display showing real-time angle.
+- **Status Badges**: Live connection status, homing state (`HOMED`/`NOT HOMED`), and power state (`ENABLED`/`DISABLED`/`ESTOP`).
+- **Feedrate Control**: Select preset move speeds (`300°/min` to `3600°/min` or `RAPID G0`), sync with range slider or numeric feedrate input.
+- **Presets Grid**: One-click move to `-720°`, `-360°`, `-180°`, `-90°`, `0°`, `90°`, `180°`, `360°`, `720°`.
+- **Step Jogging**: Select step increment (`0.1°`, `1.0°`, `10.0°`, `45.0°`, `90.0°`, `180°`, `360°`) and jog CW / CCW.
+
+### 2. Tkinter Desktop GUI (`gui/tkinter_app.py`)
+Launch with:
+```bash
+python3 gui/tkinter_app.py
+```
+Provides a standalone native desktop window with real-time background position polling thread, presets, step jogging, target angle entry, and machine controls.
+
+### 3. Interactive Python IDLE Module (`rotary.py`)
+Launch Python IDLE or interactive REPL:
+```python
+>>> from rotary import *
+>>> pos()            # Read position in degrees
+>>> move(360)        # Absolute move to 360°
+>>> move_rel(-45)    # Relative move -45°
+>>> preset(180)      # Move to preset 180°
+>>> jog_cw(10)       # Step jog CW by 10°
+>>> jog_ccw(5)       # Step jog CCW by 5°
+>>> home()           # Home A-axis
+>>> enable()         # Enable machine power
+>>> abort()          # Abort motion
+>>> status()         # Print detailed machine status
+>>> gcode("G0 A90")  # Send raw G-code
+```
+
+### 4. Zero-Dependency Python SDK (`python-api-gateway/client.py`)
+Integrate into test scripts:
+```python
+from client import RotaryTableClient
+
+table = RotaryTableClient("http://localhost:8000")
+table.enable()
+table.home()
+table.move_to(360.0, feedrate=1200)
+print("Current position:", table.get_position())
+```
+
+---
+
+## 🧪 Automated Testing
+
+An automated test suite is provided in `tests/test_api.py`. It runs the REST API Gateway in **Mock Mode**, verifying all SDK methods and IDLE module commands without hardware.
+
+Run tests:
+```bash
+python3 -m unittest tests/test_api.py
+```
+
+---
+
+## 🚀 Raspberry Pi Headless & Systemd Deployment
+
+### 1. Avahi (mDNS) Zero-IP Network Access
+Install Avahi daemon to allow zero-IP network resolution via **`rotary-table.local`**:
 
 ```bash
 sudo apt update && sudo apt install -y avahi-daemon avahi-utils
 sudo hostnamectl set-hostname rotary-table
 
-# Copy mDNS service broadcast config
-sudo cp configs/avahi/rotary-table.service /etc/avahi/services/
+# Copy mDNS service broadcast definition
+sudo cp configs/avahi/rotarytable.service /etc/avahi/services/
 sudo systemctl restart avahi-daemon
 ```
 
----
+### 2. Install Systemd Services
+Three systemd service files are provided in `configs/systemd/`:
+1. `linuxcnc.service`: Manages LinuxCNC core engine.
+2. `linuxcnc-gcode-server.service`: Manages C++ NML socket server.
+3. `rotary-api-gateway.service`: Manages Python REST API Gateway & Web UI.
 
-### 2. Install Systemd Background Services
-
-Three simple systemd service files are provided in `configs/systemd/`:
-
-1. [linuxcnc.service](configs/systemd/linuxcnc.service): Starts LinuxCNC core engine.
-2. [linuxcnc-gcode-server.service](configs/systemd/linuxcnc-gcode-server.service): Starts C++ NML socket server.
-3. [rotary-api-gateway.service](configs/systemd/rotary-api-gateway.service): Starts Python REST API & Web UI.
-
-Edit the `.ini` file paths in `linuxcnc.service` and `linuxcnc-gcode-server.service` to point to your actual machine `.ini` file, then enable them:
+Edit the `.ini` file paths in `linuxcnc.service` and `linuxcnc-gcode-server.service` to point to your machine `.ini` file, then enable them:
 
 ```bash
-# Copy systemd service units
 sudo cp configs/systemd/*.service /etc/systemd/system/
-
-# Reload and start all services on boot
 sudo systemctl daemon-reload
 sudo systemctl enable --now linuxcnc.service
 sudo systemctl enable --now linuxcnc-gcode-server.service
 sudo systemctl enable --now rotary-api-gateway.service
 ```
 
----
-
-### 3. Zero-IP Access from Any Device
-
-Once enabled, your system automatically boots into service and is accessible network-wide via **`rotary-table.local`**:
-
+Once active, access your system network-wide:
 - 🌐 **Web Dashboard**: `http://rotary-table.local:8000`
-- 🖥️ **Tkinter Desktop GUI**: Connects to `http://rotary-table.local:8000`
-- 🐍 **Python IDLE**: `connect("http://rotary-table.local:8000")`
-- 🧪 **Test Automation**: `RotaryTableClient("http://rotary-table.local:8000")`
-
-<br>
+- 🖥️ **Tkinter App**: Connects to `http://rotary-table.local:8000`
+- 🧪 **Python SDK**: `RotaryTableClient("http://rotary-table.local:8000")`
 
 ---
 
-## 🧪 Integration into Larger Hardware Testing Suites
+## 🎯 OpenPNP Integration Guide
 
-This system is designed specifically for automated hardware-in-the-loop (HIL) testing suites (such as `pytest`, `unittest`, or custom Python test runners). By using the zero-dependency SDK (`python-api-gateway/client.py`), your test harness can programmatically position sensors, antennas, or DUTs (Devices Under Test) mounted on the rotary table.
+Set up a `GCodeDriver` in OpenPNP:
 
-### 1. Initializing Connection
+![OpenPNP Driver Setup](https://www.iforce2d.net/tmp/openpnp/Selection_1177.png)
 
-Import `RotaryTableClient` and pass the gateway endpoint. Thanks to mDNS, you can use the hostname `http://rotary-table.local:8000` without hardcoding IP addresses:
+Clicking `Detect Firmware` under `Driver Settings` returns:  
+`ok FIRMWARE_NAME:linuxcnc-gcode, FIRMWARE_VERSION:0.1`
 
-```python
-from client import RotaryTableClient
+### Recommended OpenPNP Regexes & Commands
+- **COMMAND_CONFIRM_REGEX**: `^ok.*`
+- **POSITION_REPORT_REGEX**: `^ok X:(?<x>-?\d+\.\d+) Y:(?<y>-?\d+\.\d+) Z:(?<z>-?\d+\.\d+) A:(?<rotation>-?\d+\.\d+)`
+- **COMMAND_ERROR_REGEX**: `^error:.*`
+- **ACTUATE_BOOLEAN_COMMAND**: `M{True:64}{False:65} P0` (controls `motion.digital-out-00`)
+- **MOVE_TO_COMMAND**: `G1 {X:X%.3f} {Y:Y%.3f} {Z:Z%.3f} {A:A%.4f} {FeedRate:F%.0f}`
+- **MOVE_TO_COMPLETE_COMMAND**: `M400`
+- **ACTUATOR_READ_COMMAND**: `M105`
+- **ACTUATOR_READ_REGEX**: `^ok.* T2:(?<Value>-?\d+\.\d+)`
 
-# Initialize connection (default timeout: 5.0s)
-table = RotaryTableClient("http://rotary-table.local:8000")
+### Dynamic Acceleration (M171 User M-Code Script)
+To allow OpenPNP to dynamically adjust acceleration, configure `MOVE_TO_COMMAND` to send `M171 P[accel]`.
 
-# Optional: verify machine status before running tests
-status_info = table.get_status()
-print(f"Machine State: {status_info.get('state')}")
+Create an executable file named `M171` (no extension) in the directory defined by `PROGRAM_PREFIX` in your `.ini` file:
+
+```bash
+#!/bin/bash
+acceleration=$1
+halcmd setp ini.x.max_acceleration $acceleration
+halcmd setp ini.y.max_acceleration $acceleration
+halcmd setp ini.z.max_acceleration $acceleration
+exit 0
 ```
 
-### 2. Controlling Table & Sweeping Angles in Test Scripts
+---
 
-```python
-import time
-from client import RotaryTableClient
+## 🔄 Motion Blending & Subroutine Buffering
 
-def run_antenna_pattern_test():
-    # 1. Connect & initialize machine state
-    table = RotaryTableClient("http://rotary-table.local:8000")
-    table.enable()   # Clear ESTOP & enable motor drivers
-    table.home()     # Home A-axis to 0° reference point
+LinuxCNC blends consecutive line segments when `G64` is active. However, commands sent individually via MDI can suffer timing jitter that breaks blending in 20–30% of cases.
 
-    # 2. Perform automated angular sweep test (0° to 360° in 45° steps)
-    test_angles = [0, 45, 90, 135, 180, 225, 270, 315, 360]
-    results = {}
+### Using `BEGINSUB` and `ENDSUB`
+Grouping moves inside `BEGINSUB` and `ENDSUB` stores commands in a buffer and sends them as a cohesive O-code subroutine:
 
-    for angle in test_angles:
-        # Move table to exact target angle
-        table.move_to(angle, feedrate=1200) # G1 A<angle> F1200
-        
-        # Verify arrival
-        current_pos = table.get_position()
-        print(f"Rotary Table positioned at: {current_pos:.2f}°")
-
-        # 3. Trigger your sensor / RF measurement here
-        sensor_value = read_rf_power_meter() # Your test instrumentation
-        results[angle] = sensor_value
-
-    # 4. Return to 0° home position after test completion
-    table.move_preset(0)
-    return results
-
-if __name__ == "__main__":
-    data = run_antenna_pattern_test()
-    print("Test Sweep Complete:", data)
+```gcode
+beginsub
+g1 x10 y20
+g1 x25 y25
+g1 x40 y20
+endsub
 ```
 
-### Key SDK Methods for Test Harnesses
+Subroutines are created in the path defined by `RS247NGC:SUBROUTINE_PATH` in your `.ini` file. For best disk lifespan, point `SUBROUTINE_PATH` to a RAM filesystem (e.g. `/run/user/1000`).
 
-| Method | G-Code Equivalent | Description |
-| :--- | :--- | :--- |
-| `table.get_position()` | `M114` | Returns current A-axis position in degrees as `float`. |
-| `table.move_to(angle, feedrate=None)` | `G0 A<val>` / `G1 A<val> F<rate>` | Synchronously moves to absolute angle in degrees. |
-| `table.move_relative(delta, feedrate=None)` | `G0 A<current+delta>` | Incremental relative move offset in degrees. |
-| `table.jog(direction, step_deg)` | Step move | Step jog CW (`+1`) or CCW (`-1`). |
-| `table.home()` | `HOME` | Homes A-axis. |
-| `table.enable()` | `ENABLE` | Clears ESTOP and enables machine power. |
-| `table.abort()` | `ABORT` | Immediately stops table motion. |
+When jogging in OpenPNP without issuing `MOVE_TO_COMPLETE_COMMAND`, the server's auto-send batch timeout (`-t <ms>`, default 250ms) automatically flushes and executes pending move batches.
 
+---
 
+## 🏗️ Building & Process Management
 
+### Build Requirements
+Requires LinuxCNC development headers (`linuxcnc-uspace-dev` or equivalent) and `g++`.
 
+```bash
+# Build C++ binary
+make
 
+# Clean build artifacts
+make clean
+
+# Emergency stop & kill all LinuxCNC/server background processes
+make stop
+```
+
+---
+
+## 📄 License
+Released under standard open-source licensing. See [LICENSE](LICENSE) for details.
