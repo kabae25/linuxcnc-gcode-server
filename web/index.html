@@ -618,14 +618,17 @@
     }
 
     function moveToPreset(angle) {
-      let payload = { preset_deg: angle };
-      if (currentFeedrate > 0) payload.feedrate = currentFeedrate;
+      const val = parseFloat(angle);
+      let payload = { preset_deg: val };
+      if (currentFeedrate > 0) payload.feedrate = parseFloat(currentFeedrate);
       sendAction('/api/v1/preset', payload);
     }
 
     function jog(dir) {
-      let payload = { direction: dir, step: currentStep };
-      if (currentFeedrate > 0) payload.feedrate = currentFeedrate;
+      const direction = parseInt(dir);
+      const step = parseFloat(currentStep);
+      let payload = { direction: direction, step: step };
+      if (currentFeedrate > 0) payload.feedrate = parseFloat(currentFeedrate);
       sendAction('/api/v1/jog', payload);
     }
 

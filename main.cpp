@@ -272,20 +272,7 @@ bool isHomed(int axisIndex) {
 }
 
 bool ensureHomeAll(int timeoutSeconds = 30) {
-
     updateStatus();
-    bool needHoming = false;
-
-    for (int i = 0; i < numJoints; i++) {
-        if ( ! emcStatus->motion.joint[i].homed ) {
-            needHoming = true;
-        }
-    }
-
-    if ( !needHoming ) {
-        printf("All joints already homed.\n");
-        return true;
-    }
 
     // send -1 to home all axes according to ini ordering
     int ok = sendHome(-1) == 0;
@@ -298,43 +285,28 @@ bool ensureHomeAll(int timeoutSeconds = 30) {
         esleep(0.1);
     }
 
-    //showStatus();
-
     if ( ! allHomed() ) {
         printf("Homing failed!\n");
         return false;
     }
 
     printf("Homing done.\n");
-
     return true;
 }
 
 bool ensureHomeAxis(int axisIndex, int timeoutSeconds = 30) {
-
     updateStatus();
-    bool needHoming = false;
 
-    if ( ! emcStatus->motion.joint[axisIndex].homed ) {
-        int ok = sendHome(axisIndex) == 0;
-        printf("sendHome(%d) %s\n", axisIndex, ok ? "ok":"ng");
-        if ( updateError() > 0 ) {
-            return false;
-        }
-        needHoming = true;
+    int ok = sendHome(axisIndex) == 0;
+    printf("sendHome(%d) %s\n", axisIndex, ok ? "ok":"ng");
+    if ( updateError() > 0 ) {
+        return false;
     }
 
-    if ( !needHoming ) {
-        printf("Axis %d already homed.\n", axisIndex);
-        return true;
-    }
-
-    printf("Waiting for home completion...\n");
+    printf("Waiting for axis %d home completion...\n", axisIndex);
     for (int i = 0; !isHomed(axisIndex) && i < timeoutSeconds * 10; i++) {
         esleep(0.1);
     }
-
-    //showStatus();
 
     if ( ! isHomed(axisIndex) ) {
         printf("Homing failed!\n");
@@ -342,7 +314,6 @@ bool ensureHomeAxis(int axisIndex, int timeoutSeconds = 30) {
     }
 
     printf("Homing done.\n");
-
     return true;
 }
 

@@ -221,9 +221,9 @@ class RESTApiHandler(http.server.SimpleHTTPRequestHandler):
 
         try:
             if path == "/api/v1/move":
-                pos = payload.get("position", 0.0)
-                mode = payload.get("mode", "absolute")
-                feedrate = payload.get("feedrate")
+                pos = float(payload.get("position", 0.0))
+                mode = str(payload.get("mode", "absolute"))
+                feedrate_val = float(payload["feedrate"]) if payload.get("feedrate") and float(payload["feedrate"]) > 0 else None
 
                 if mode.lower() == "relative":
                     current = get_current_position_data()["position_deg"]
@@ -231,27 +231,27 @@ class RESTApiHandler(http.server.SimpleHTTPRequestHandler):
                 else:
                     target = pos
 
-                gcode = f"G1 A{target:.4f} F{feedrate:.2f}" if feedrate else f"G0 A{target:.4f}"
+                gcode = f"G90 G1 A{target:.4f} F{feedrate_val:.2f}" if feedrate_val else f"G90 G0 A{target:.4f}"
                 res = send_gcode_command(gcode)
                 response_data = {"status": "ok", "command": gcode, "target_position_deg": target, "raw_response": res.strip()}
 
             elif path == "/api/v1/jog":
-                direction = payload.get("direction", 1)
-                step = payload.get("step", 1.0)
-                feedrate = payload.get("feedrate")
+                direction = int(payload.get("direction", 1))
+                step = float(payload.get("step", 1.0))
+                feedrate_val = float(payload["feedrate"]) if payload.get("feedrate") and float(payload["feedrate"]) > 0 else None
 
                 dir_factor = 1.0 if direction >= 0 else -1.0
                 current = get_current_position_data()["position_deg"]
                 target = current + (step * dir_factor)
 
-                gcode = f"G1 A{target:.4f} F{feedrate:.2f}" if feedrate else f"G0 A{target:.4f}"
+                gcode = f"G90 G1 A{target:.4f} F{feedrate_val:.2f}" if feedrate_val else f"G90 G0 A{target:.4f}"
                 res = send_gcode_command(gcode)
                 response_data = {"status": "ok", "command": gcode, "target_position_deg": target, "raw_response": res.strip()}
 
             elif path == "/api/v1/preset":
-                preset_deg = payload.get("preset_deg", 0.0)
-                feedrate = payload.get("feedrate")
-                gcode = f"G1 A{preset_deg:.4f} F{feedrate:.2f}" if feedrate else f"G0 A{preset_deg:.4f}"
+                preset_deg = float(payload.get("preset_deg", 0.0))
+                feedrate_val = float(payload["feedrate"]) if payload.get("feedrate") and float(payload["feedrate"]) > 0 else None
+                gcode = f"G90 G1 A{preset_deg:.4f} F{feedrate_val:.2f}" if feedrate_val else f"G90 G0 A{preset_deg:.4f}"
                 res = send_gcode_command(gcode)
                 response_data = {"status": "ok", "command": gcode, "target_position_deg": preset_deg, "raw_response": res.strip()}
 
