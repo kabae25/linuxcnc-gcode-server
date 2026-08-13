@@ -417,13 +417,14 @@
       <div class="offset-box">
         <div class="offset-top">
           <span>ZERO REFERENCE OFFSET</span>
-          <span id="offsetValText" style="font-family: 'JetBrains Mono', monospace; color: #34d399;">0.0°</span>
+          <span id="offsetValText" style="font-family: 'JetBrains Mono', monospace; color: #34d399;">-71.0°</span>
         </div>
         <div class="offset-controls">
-          <input id="offsetSlider" type="range" min="-180" max="180" value="0" step="0.5" style="flex: 1; accent-color: #34d399;" oninput="updateOffsetFromSlider(this.value)">
-          <input id="offsetInput" type="number" class="num-input" value="0.0" step="0.5" onchange="updateOffsetFromInput(this.value)">
+          <input id="offsetSlider" type="range" min="-360" max="360" value="-71" step="0.5" style="flex: 1; accent-color: #34d399;" oninput="updateOffsetFromSlider(this.value)">
+          <input id="offsetInput" type="number" class="num-input" value="-71.0" step="0.5" onchange="updateOffsetFromInput(this.value)">
+          <button class="btn btn-sm" onclick="updateOffsetFromInput(-71.0)">-71° (HOME)</button>
           <button class="btn btn-sm" onclick="setZeroOffsetHere()">ZERO HERE</button>
-          <button class="btn btn-sm" onclick="resetOffset()">RESET</button>
+          <button class="btn btn-sm" onclick="resetOffset()">RESET (0°)</button>
         </div>
       </div>
     </div>
@@ -500,7 +501,8 @@
   <script>
     let currentStep = 1.0;
     let currentFeedrate = 1200; // 0 = Rapid G0, >0 = Feedrate F in °/min
-    let zeroOffset = parseFloat(localStorage.getItem('rotary_zero_offset')) || 0.0;
+    let savedOffset = localStorage.getItem('rotary_zero_offset');
+    let zeroOffset = savedOffset !== null ? parseFloat(savedOffset) : -71.0;
     let lastRawPosition = 0.0;
 
     function initOffsetUI() {

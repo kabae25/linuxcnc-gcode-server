@@ -564,6 +564,12 @@ bool ensureTaskMode(connectionRecType* context, EMC_TASK_MODE_ENUM whichMode) {
     const char* modeName = getString_EMC_TASK_MODE_short(whichMode);
 
     updateStatus();
+    if (emcStatus->task.state != EMC_TASK_STATE_ON) {
+        sendEstopReset();
+        sendMachineOn();
+        updateStatus();
+    }
+
     if ( emcStatus->task.mode != whichMode ) {
         printf("send mode change to %s ..." , modeName);
         int res = (whichMode == EMC_TASK_MODE_MDI) ? sendMdi() : sendManual();
