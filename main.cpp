@@ -376,6 +376,7 @@ typedef enum {
     cmdStatus = 0,
     cmdAbort,
     cmdEnable,
+    cmdDisable,
     cmdHome,
     cmdManual,
     cmdMdi,
@@ -395,7 +396,7 @@ typedef enum {
     cmdUnknown
 } commandTokenType;
 
-const char *commands[] = {"STATUS", "ABORT", "ENABLE", "HOME", "MANUAL", "MDI", "OPEN", "FILE", "RUN", "PAUSE", "RESUME", "M114", "M115", "M105", "M400", "BEGINSUB", "ENDSUB", "STATUS_JSON", "M114_JSON", ""};
+const char *commands[] = {"STATUS", "ABORT", "ENABLE", "DISABLE", "HOME", "MANUAL", "MDI", "OPEN", "FILE", "RUN", "PAUSE", "RESUME", "M114", "M115", "M105", "M400", "BEGINSUB", "ENDSUB", "STATUS_JSON", "M114_JSON", ""};
 
 int lookupToken(char *s)
 {
@@ -473,9 +474,19 @@ void replyJsonPosition( connectionRecType* context ) {
     wsPose.tran.z = emcStatus->motion.traj.actualPosition.tran.z - emcStatus->task.g5x_offset.tran.z - emcStatus->task.g92_offset.tran.z;
     wsPose.a = emcStatus->motion.traj.actualPosition.a - emcStatus->task.g5x_offset.a - emcStatus->task.g92_offset.a;
 
+    bool isHomed = true;
+    for (int i = 0; i < numJoints; i++) {
+        if (!emcStatus->motion.joint[i].homed) {
+            isHomed = false;
+            break;
+        }
+    }
+
     char s[256];
-    snprintf(s, sizeof(s), "{\"ok\":true,\"x\":%.4f,\"y\":%.4f,\"z\":%.4f,\"a\":%.4f}\n",
-             wsPose.tran.x, wsPose.tran.y, wsPose.tran.z, wsPose.a);
+    snprintf(s, sizeof(s), "{\"ok\":true,\"x\":%.4f,\"y\":%.4f,\"z\":%.4f,\"a\":%.4f,\"homed\":%s,\"state\":\"%s\"}\n",
+             wsPose.tran.x, wsPose.tran.y, wsPose.tran.z, wsPose.a,
+             isHomed ? "true" : "false",
+             getString_EMC_TASK_STATE_short(emcStatus->task.state));
     write(context->cliSock, s, strlen(s));
 }
 
@@ -704,7 +715,19 @@ bool setModeMdi(connectionRecType *context){
     return ok;
 }
 
+void doDisable(connectionRecType *context) {
+    sendMachineOff();
+    sendEstop();
+    replyOk(context);
+}
+
 bool doHome(connectionRecType *context, char* inStr){
+
+    updateStatus();
+    if (emcStatus->task.state != EMC_TASK_STATE_ON) {
+        sendEstopReset();
+        sendMachineOn();
+    }
 
     if ( ! ensureTaskMode(context, EMC_TASK_MODE_MANUAL) )
         return false;
@@ -1033,6 +1056,9 @@ int parseCommand(connectionRecType *context)
                     break;
                 case cmdEnable:
                     estopOffAndMachineOn(context);
+                    break;
+                case cmdDisable:
+                    doDisable(context);
                     break;
                 case cmdOpenProgram:
                     doOpenCommand(context, originalInBuf);

@@ -80,7 +80,7 @@ class RotaryTableApp(tk.Tk):
         )
         presets_card.pack(fill="x", padx=15, pady=10)
 
-        presets = [0, 45, 90, 135, 180, 225, 270, 315, 360]
+        presets = [-720, -360, -180, -90, 0, 90, 180, 360, 720]
         grid_frame = tk.Frame(presets_card, bg="#1e293b")
         grid_frame.pack(fill="x")
 

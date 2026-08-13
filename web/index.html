@@ -6,446 +6,580 @@
   <title>LinuxCNC Rotary Table Controller</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@500;700&display=swap" rel="stylesheet">
   <style>
     :root {
-      --bg-dark: #0f172a;
-      --card-bg: rgba(30, 41, 59, 0.7);
-      --card-border: rgba(255, 255, 255, 0.1);
-      --accent-blue: #38bdf8;
-      --accent-purple: #818cf8;
-      --accent-emerald: #34d399;
-      --accent-rose: #fb7185;
-      --text-main: #f8fafc;
-      --text-muted: #94a3b8;
+      --bg: #090d16;
+      --panel: #131c2e;
+      --panel-border: #22314e;
+      --text: #e2e8f0;
+      --muted: #64748b;
+      --accent: #38bdf8;
+      --accent-muted: #0284c7;
+      --success: #22c55e;
+      --warning: #f59e0b;
+      --danger: #ef4444;
     }
 
     * {
       box-sizing: border-box;
       margin: 0;
       padding: 0;
-      font-family: 'Inter', sans-serif;
+      font-family: 'Inter', system-ui, sans-serif;
     }
 
     body {
-      background-color: var(--bg-dark);
-      background-image: 
-        radial-gradient(at 0% 0%, rgba(56, 189, 248, 0.12) 0px, transparent 50%),
-        radial-gradient(at 100% 100%, rgba(129, 140, 248, 0.12) 0px, transparent 50%);
-      color: var(--text-main);
+      background-color: var(--bg);
+      color: var(--text);
       min-height: 100vh;
       display: flex;
       flex-direction: column;
       align-items: center;
-      padding: 2rem 1rem;
+      padding: 1.25rem;
     }
 
+    /* Top Container */
+    .container {
+      width: 100%;
+      max-width: 900px;
+      display: flex;
+      flex-direction: column;
+      gap: 1rem;
+    }
+
+    /* Minimal Header */
     header {
       width: 100%;
-      max-width: 1000px;
       display: flex;
       justify-content: space-between;
       align-items: center;
-      margin-bottom: 2rem;
-      padding: 1rem 1.5rem;
-      background: var(--card-bg);
-      backdrop-filter: blur(12px);
-      border: 1px solid var(--card-border);
-      border-radius: 16px;
+      padding: 0.75rem 1rem;
+      background: var(--panel);
+      border: 1px solid var(--panel-border);
+      border-radius: 8px;
     }
 
-    .title-group h1 {
-      font-size: 1.5rem;
+    .header-title {
+      font-size: 1.1rem;
       font-weight: 700;
-      background: linear-gradient(135deg, var(--accent-blue), var(--accent-purple));
-      -webkit-background-clip: text;
-      -webkit-text-fill-color: transparent;
+      color: var(--text);
     }
 
-    .title-group p {
-      font-size: 0.875rem;
-      color: var(--text-muted);
-    }
-
-    .status-badge {
-      display: inline-flex;
+    .header-badges {
+      display: flex;
       align-items: center;
       gap: 0.5rem;
-      padding: 0.5rem 1rem;
-      background: rgba(15, 23, 42, 0.6);
-      border: 1px solid var(--card-border);
-      border-radius: 9999px;
-      font-size: 0.85rem;
-      font-weight: 500;
     }
 
-    .status-dot {
-      width: 10px;
-      height: 10px;
+    .badge {
+      display: flex;
+      align-items: center;
+      gap: 0.4rem;
+      font-size: 0.8rem;
+      font-weight: 600;
+      padding: 0.35rem 0.75rem;
+      background: #0b1322;
+      border: 1px solid var(--panel-border);
+      border-radius: 6px;
+    }
+
+    .badge-dot {
+      width: 8px;
+      height: 8px;
       border-radius: 50%;
-      background-color: var(--accent-emerald);
-      box-shadow: 0 0 10px var(--accent-emerald);
+      background: var(--success);
     }
 
-    .status-dot.offline {
-      background-color: var(--accent-rose);
-      box-shadow: 0 0 10px var(--accent-rose);
+    .badge-dot.offline {
+      background: var(--danger);
     }
 
-    .main-grid {
-      width: 100%;
-      max-width: 1000px;
+    .badge-dot.warning {
+      background: var(--warning);
+    }
+
+    /* Top Control Bar: ENABLE, DISABLE, HOME, ABORT */
+    .top-control-bar {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 0.5rem;
+      background: var(--panel);
+      border: 1px solid var(--panel-border);
+      border-radius: 8px;
+      padding: 0.75rem;
+    }
+
+    .panel {
+      background: var(--panel);
+      border: 1px solid var(--panel-border);
+      border-radius: 8px;
+      padding: 1rem;
+      display: flex;
+      flex-direction: column;
+      gap: 1rem;
+    }
+
+    .panel-header {
+      font-size: 0.8rem;
+      font-weight: 700;
+      color: var(--muted);
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      border-bottom: 1px solid var(--panel-border);
+      padding-bottom: 0.4rem;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    /* Monospace Readout Cards */
+    .readout-grid {
       display: grid;
       grid-template-columns: 1fr 1fr;
-      gap: 1.5rem;
+      gap: 0.75rem;
     }
 
-    @media (max-width: 800px) {
-      .main-grid {
-        grid-template-columns: 1fr;
-      }
+    .readout-cell {
+      background: #0b1322;
+      border: 1px solid var(--panel-border);
+      border-radius: 6px;
+      padding: 0.75rem 1rem;
     }
 
-    .card {
-      background: var(--card-bg);
-      backdrop-filter: blur(12px);
-      border: 1px solid var(--card-border);
-      border-radius: 20px;
-      padding: 1.5rem;
+    .readout-label {
+      font-size: 0.7rem;
+      font-weight: 600;
+      color: var(--muted);
+      text-transform: uppercase;
+    }
+
+    .readout-value {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 2.2rem;
+      font-weight: 700;
+      color: var(--accent);
+      margin-top: 0.2rem;
+    }
+
+    /* Offset Controls */
+    .offset-box {
+      background: #0b1322;
+      border: 1px solid var(--panel-border);
+      border-radius: 6px;
+      padding: 0.65rem 0.75rem;
       display: flex;
       flex-direction: column;
-      gap: 1.25rem;
+      gap: 0.5rem;
     }
 
-    .card-title {
-      font-size: 1.1rem;
+    .offset-top {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-size: 0.75rem;
       font-weight: 600;
-      color: var(--text-main);
+      color: var(--muted);
+    }
+
+    .offset-controls {
       display: flex;
       align-items: center;
       gap: 0.5rem;
     }
 
-    /* Dial Display */
-    .dial-container {
+    /* Speed / Feedrate Control Panel */
+    .speed-panel {
+      background: #0b1322;
+      border: 1px solid var(--panel-border);
+      border-radius: 6px;
+      padding: 0.75rem;
       display: flex;
       flex-direction: column;
+      gap: 0.5rem;
+    }
+
+    .speed-top {
+      display: flex;
+      justify-content: space-between;
       align-items: center;
-      justify-content: center;
-      padding: 1rem 0;
+      font-size: 0.75rem;
+      font-weight: 600;
+      color: var(--muted);
     }
 
-    .gauge-wrapper {
-      position: relative;
-      width: 220px;
-      height: 220px;
+    .speed-presets {
+      display: flex;
+      gap: 0.4rem;
+      flex-wrap: wrap;
     }
 
-    .gauge-svg {
-      transform: rotate(-90deg);
-      width: 100%;
-      height: 100%;
-    }
-
-    .gauge-bg {
-      fill: none;
-      stroke: rgba(255, 255, 255, 0.05);
-      stroke-width: 16;
-    }
-
-    .gauge-progress {
-      fill: none;
-      stroke: url(#gaugeGradient);
-      stroke-width: 16;
-      stroke-linecap: round;
-      stroke-dasharray: 565;
-      stroke-dashoffset: 565;
-      transition: stroke-dashoffset 0.3s ease, stroke 0.3s ease;
-    }
-
-    .gauge-center {
-      position: absolute;
-      top: 50%;
-      left: 50%;
-      transform: translate(-50%, -50%);
+    .speed-btn {
+      flex: 1;
+      min-width: 70px;
+      padding: 0.35rem 0.4rem;
+      background: #131c2e;
+      border: 1px solid var(--panel-border);
+      border-radius: 4px;
+      color: var(--text);
+      font-size: 0.75rem;
+      font-weight: 600;
+      cursor: pointer;
       text-align: center;
     }
 
-    .position-readout {
+    .speed-btn.active {
+      background: var(--accent-muted);
+      border-color: var(--accent);
+      color: #ffffff;
+    }
+
+    .num-input {
+      padding: 0.45rem 0.6rem;
+      background: #060a12;
+      border: 1px solid var(--panel-border);
+      border-radius: 4px;
+      color: var(--text);
       font-family: 'JetBrains Mono', monospace;
-      font-size: 2.25rem;
-      font-weight: 700;
-      color: var(--text-main);
-      letter-spacing: -0.05em;
-    }
-
-    .position-unit {
       font-size: 0.9rem;
-      color: var(--text-muted);
-      text-transform: uppercase;
-      font-weight: 600;
-      margin-top: -4px;
+      width: 90px;
+      text-align: center;
     }
 
-    /* Presets Grid */
-    .presets-grid {
+    .num-input:focus {
+      outline: none;
+      border-color: var(--accent);
+    }
+
+    /* Control Grid */
+    .preset-grid {
       display: grid;
       grid-template-columns: repeat(3, 1fr);
-      gap: 0.75rem;
+      gap: 0.5rem;
     }
 
     .btn {
-      padding: 0.75rem 1rem;
-      background: rgba(255, 255, 255, 0.05);
-      border: 1px solid var(--card-border);
-      border-radius: 12px;
-      color: var(--text-main);
+      padding: 0.6rem 0.85rem;
+      background: #1a263d;
+      border: 1px solid var(--panel-border);
+      border-radius: 6px;
+      color: var(--text);
       font-weight: 600;
-      font-size: 0.9rem;
+      font-size: 0.85rem;
       cursor: pointer;
-      transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+      transition: background 0.15s, border-color 0.15s;
       display: flex;
       align-items: center;
       justify-content: center;
-      gap: 0.5rem;
     }
 
     .btn:hover {
-      background: rgba(56, 189, 248, 0.15);
-      border-color: rgba(56, 189, 248, 0.4);
-      transform: translateY(-2px);
+      background: #243452;
+      border-color: var(--accent);
     }
 
     .btn:active {
-      transform: translateY(0);
+      background: var(--accent-muted);
+    }
+
+    .btn-sm {
+      padding: 0.35rem 0.6rem;
+      font-size: 0.75rem;
+    }
+
+    .btn-lg {
+      padding: 0.8rem 1rem;
+      font-size: 0.95rem;
+      font-weight: 700;
     }
 
     .btn-primary {
-      background: linear-gradient(135deg, var(--accent-blue), #0284c7);
-      border: none;
-      color: #0f172a;
-      font-weight: 700;
+      background: var(--accent-muted);
+      border-color: var(--accent);
+      color: #ffffff;
     }
 
     .btn-primary:hover {
-      background: linear-gradient(135deg, #7dd3fc, var(--accent-blue));
-      box-shadow: 0 4px 15px rgba(56, 189, 248, 0.3);
+      background: #0369a1;
+    }
+
+    .btn-success {
+      background: #15803d;
+      border-color: var(--success);
+      color: #ffffff;
+    }
+
+    .btn-success:hover {
+      background: #166534;
     }
 
     .btn-danger {
-      background: rgba(251, 113, 133, 0.15);
-      border-color: rgba(251, 113, 133, 0.3);
-      color: var(--accent-rose);
+      background: #991b1b;
+      border-color: var(--danger);
+      color: #ffffff;
     }
 
     .btn-danger:hover {
-      background: rgba(251, 113, 133, 0.3);
-      border-color: var(--accent-rose);
+      background: #7f1d1d;
     }
 
-    .btn-emerald {
-      background: rgba(52, 211, 153, 0.15);
-      border-color: rgba(52, 211, 153, 0.3);
-      color: var(--accent-emerald);
-    }
-
-    .btn-emerald:hover {
-      background: rgba(52, 211, 153, 0.3);
-      border-color: var(--accent-emerald);
-    }
-
-    /* Jog Controls */
-    .jog-container {
+    /* Jog Selectors */
+    .step-bar {
       display: flex;
-      flex-direction: column;
-      gap: 1rem;
+      background: #060a12;
+      border: 1px solid var(--panel-border);
+      border-radius: 6px;
+      padding: 2px;
+      gap: 2px;
     }
 
-    .step-selector {
-      display: flex;
-      background: rgba(15, 23, 42, 0.6);
-      padding: 0.25rem;
-      border-radius: 12px;
-      border: 1px solid var(--card-border);
-    }
-
-    .step-option {
+    .step-btn {
       flex: 1;
       text-align: center;
-      padding: 0.5rem;
-      font-size: 0.85rem;
+      padding: 0.4rem 0.2rem;
+      font-size: 0.8rem;
       font-weight: 600;
-      border-radius: 8px;
+      color: var(--muted);
       cursor: pointer;
-      color: var(--text-muted);
-      transition: all 0.2s;
+      border-radius: 4px;
     }
 
-    .step-option.active {
-      background: var(--accent-blue);
-      color: #0f172a;
-    }
-
-    .jog-buttons {
-      display: grid;
-      grid-template-columns: 1fr 1fr;
-      gap: 1rem;
-    }
-
-    .jog-btn {
-      height: 60px;
-      font-size: 1.25rem;
+    .step-btn.active {
+      background: var(--panel);
+      color: var(--accent);
       font-weight: 700;
     }
 
-    /* Input Group */
-    .input-group {
-      display: flex;
-      gap: 0.75rem;
-    }
-
-    .input-field {
-      flex: 1;
-      padding: 0.75rem 1rem;
-      background: rgba(15, 23, 42, 0.6);
-      border: 1px solid var(--card-border);
-      border-radius: 12px;
-      color: var(--text-main);
-      font-family: 'JetBrains Mono', monospace;
-      font-size: 1rem;
-    }
-
-    .input-field:focus {
-      outline: none;
-      border-color: var(--accent-blue);
-    }
-
-    .actions-row {
+    .jog-row {
       display: grid;
-      grid-template-columns: 1fr 1fr 1fr;
-      gap: 0.75rem;
-      margin-top: auto;
+      grid-template-columns: 1fr 1fr;
+      gap: 0.5rem;
+    }
+
+    .jog-btn {
+      height: 52px;
+      font-size: 1.1rem;
+      font-weight: 700;
+    }
+
+    .input-row {
+      display: flex;
+      gap: 0.5rem;
     }
   </style>
 </head>
 <body>
 
-  <header>
-    <div class="title-group">
-      <h1>LinuxCNC Rotary Table Controller</h1>
-      <p>A-Axis Remote Position & Motion Control Interface</p>
-    </div>
-    <div class="status-badge">
-      <div id="statusDot" class="status-dot"></div>
-      <span id="statusText">Connected</span>
-    </div>
-  </header>
+  <div class="container">
 
-  <main class="main-grid">
-
-    <!-- Card 1: Readout & Presets -->
-    <div class="card">
-      <div class="card-title">
-        <svg width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg>
-        Current Angle Readout
+    <!-- Header: Server Connection + Live Homing Status Badge -->
+    <header>
+      <div>
+        <div class="header-title">LinuxCNC Rotary Table Controller</div>
       </div>
+      <div class="header-badges">
+        <!-- Homing Status Indicator -->
+        <div id="homingBadge" class="badge">
+          <div id="homingDot" class="badge-dot warning"></div>
+          <span id="homingText">NOT HOMED</span>
+        </div>
+        <!-- Connection Status -->
+        <div class="badge">
+          <div id="statusDot" class="badge-dot"></div>
+          <span id="statusText">Connected</span>
+        </div>
+      </div>
+    </header>
 
-      <div class="dial-container">
-        <div class="gauge-wrapper">
-          <svg class="gauge-svg" viewBox="0 0 200 200">
-            <defs>
-              <linearGradient id="gaugeGradient" x1="0%" y1="0%" x2="100%" y2="100%">
-                <stop offset="0%" stop-color="#38bdf8" />
-                <stop offset="100%" stop-color="#818cf8" />
-              </linearGradient>
-            </defs>
-            <circle class="gauge-bg" cx="100" cy="100" r="90" />
-            <circle id="gaugeProgress" class="gauge-progress" cx="100" cy="100" r="90" />
-          </svg>
-          <div class="gauge-center">
-            <div id="readoutValue" class="position-readout">0.0°</div>
-            <div class="position-unit">A-AXIS DEGREES</div>
-          </div>
+    <!-- Top Primary Controls Bar: ENABLE, DISABLE, HOME A, ABORT -->
+    <div class="top-control-bar">
+      <button class="btn btn-lg btn-success" onclick="sendAction('/api/v1/enable')">ENABLE</button>
+      <button class="btn btn-lg" onclick="sendAction('/api/v1/disable')">DISABLE</button>
+      <button class="btn btn-lg btn-primary" onclick="sendAction('/api/v1/home')">HOME A</button>
+      <button class="btn btn-lg btn-danger" onclick="sendAction('/api/v1/abort')">ABORT</button>
+    </div>
+
+    <!-- Monospace Numeric Position Readout Panel -->
+    <div class="panel">
+      <div class="panel-header">Numeric Angle Readout</div>
+      
+      <div class="readout-grid">
+        <div class="readout-cell">
+          <div class="readout-label">ACTUAL ANGLE (A-AXIS)</div>
+          <div id="actualPosReadout" class="readout-value">0.00°</div>
+        </div>
+        <div class="readout-cell">
+          <div class="readout-label">DISPLAY ANGLE (REF OFFSET)</div>
+          <div id="displayPosReadout" class="readout-value" style="color: #818cf8;">0.00°</div>
         </div>
       </div>
 
-      <div class="card-title" style="margin-top: 0.5rem;">
-        <svg width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M13 10V3L4 14h7v7l9-11h-7z"/></svg>
-        Quick Presets
+      <!-- Zero Offset Adjuster -->
+      <div class="offset-box">
+        <div class="offset-top">
+          <span>ZERO REFERENCE OFFSET</span>
+          <span id="offsetValText" style="font-family: 'JetBrains Mono', monospace; color: #34d399;">0.0°</span>
+        </div>
+        <div class="offset-controls">
+          <input id="offsetSlider" type="range" min="-180" max="180" value="0" step="0.5" style="flex: 1; accent-color: #34d399;" oninput="updateOffsetFromSlider(this.value)">
+          <input id="offsetInput" type="number" class="num-input" value="0.0" step="0.5" onchange="updateOffsetFromInput(this.value)">
+          <button class="btn btn-sm" onclick="setZeroOffsetHere()">ZERO HERE</button>
+          <button class="btn btn-sm" onclick="resetOffset()">RESET</button>
+        </div>
       </div>
+    </div>
 
-      <div class="presets-grid">
+    <!-- Motion Speed / Feedrate Control Panel -->
+    <div class="panel">
+      <div class="panel-header">Motion Speed & Feedrate Control</div>
+
+      <div class="speed-panel">
+        <div class="speed-top">
+          <span>JOG & MOVE FEEDRATE (°/min)</span>
+          <span id="feedrateValText" style="font-family: 'JetBrains Mono', monospace; color: var(--accent);">1200 °/min</span>
+        </div>
+        <div class="speed-presets">
+          <div class="speed-btn" onclick="setFeedrate(300, this)">300°/min</div>
+          <div class="speed-btn" onclick="setFeedrate(600, this)">600°/min</div>
+          <div class="speed-btn active" onclick="setFeedrate(1200, this)">1200°/min</div>
+          <div class="speed-btn" onclick="setFeedrate(2400, this)">2400°/min</div>
+          <div class="speed-btn" onclick="setFeedrate(3600, this)">3600°/min</div>
+          <div class="speed-btn" onclick="setFeedrate(0, this)">RAPID (G0)</div>
+        </div>
+        <div style="display: flex; align-items: center; gap: 0.5rem; margin-top: 0.25rem;">
+          <input id="speedSlider" type="range" min="60" max="3600" value="1200" step="60" style="flex: 1; accent-color: var(--accent);" oninput="updateFeedrateFromSlider(this.value)">
+          <input id="speedInput" type="number" class="num-input" value="1200" min="0" max="10000" step="60" onchange="updateFeedrateFromInput(this.value)">
+        </div>
+      </div>
+    </div>
+
+    <!-- Controls Panel: Presets, Step Jog, Target Move -->
+    <div class="panel">
+      <div class="panel-header">Quick Angle Presets (-720° to +720°)</div>
+
+      <div class="preset-grid">
+        <button class="btn" onclick="moveToPreset(-720)">-720°</button>
+        <button class="btn" onclick="moveToPreset(-360)">-360°</button>
+        <button class="btn" onclick="moveToPreset(-180)">-180°</button>
+        <button class="btn" onclick="moveToPreset(-90)">-90°</button>
         <button class="btn" onclick="moveToPreset(0)">0°</button>
-        <button class="btn" onclick="moveToPreset(45)">45°</button>
         <button class="btn" onclick="moveToPreset(90)">90°</button>
-        <button class="btn" onclick="moveToPreset(135)">135°</button>
         <button class="btn" onclick="moveToPreset(180)">180°</button>
-        <button class="btn" onclick="moveToPreset(225)">225°</button>
-        <button class="btn" onclick="moveToPreset(270)">270°</button>
-        <button class="btn" onclick="moveToPreset(315)">315°</button>
         <button class="btn" onclick="moveToPreset(360)">360°</button>
-      </div>
-    </div>
-
-    <!-- Card 2: Jogging & Direct Command -->
-    <div class="card">
-      <div class="card-title">
-        <svg width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M8 9l4-4 4 4m0 6l-4 4-4-4"/></svg>
-        Step Jog Controls
+        <button class="btn" onclick="moveToPreset(720)">720°</button>
       </div>
 
-      <div class="jog-container">
-        <label style="font-size: 0.85rem; color: var(--text-muted); font-weight: 500;">SELECT STEP INCREMENT</label>
-        <div class="step-selector">
-          <div class="step-option" onclick="setStep(0.1, this)">0.1°</div>
-          <div class="step-option active" onclick="setStep(1.0, this)">1.0°</div>
-          <div class="step-option" onclick="setStep(10.0, this)">10.0°</div>
-          <div class="step-option" onclick="setStep(45.0, this)">45.0°</div>
-          <div class="step-option" onclick="setStep(90.0, this)">90.0°</div>
+      <div class="panel-header" style="margin-top: 0.25rem;">Step Jogging</div>
+
+      <div style="display: flex; flex-direction: column; gap: 0.5rem;">
+        <div class="step-bar">
+          <div class="step-btn" onclick="setStep(0.1, this)">0.1°</div>
+          <div class="step-btn active" onclick="setStep(1.0, this)">1.0°</div>
+          <div class="step-btn" onclick="setStep(10.0, this)">10.0°</div>
+          <div class="step-btn" onclick="setStep(45.0, this)">45.0°</div>
+          <div class="step-btn" onclick="setStep(90.0, this)">90.0°</div>
+          <div class="step-btn" onclick="setStep(180.0, this)">180°</div>
+          <div class="step-btn" onclick="setStep(360.0, this)">360°</div>
         </div>
 
-        <div class="jog-buttons">
-          <button class="btn jog-btn" onclick="jog(-1)">⟲ - CCW</button>
-          <button class="btn jog-btn" onclick="jog(1)">⟳ + CW</button>
+        <div class="jog-row">
+          <button class="btn jog-btn" onclick="jog(-1)">JOG CCW (-)</button>
+          <button class="btn jog-btn" onclick="jog(1)">JOG CW (+)</button>
         </div>
       </div>
 
-      <div class="card-title" style="margin-top: 0.5rem;">
-        <svg width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8"/></svg>
-        Target Absolute Move
-      </div>
+      <div class="panel-header" style="margin-top: 0.25rem;">Target Position Move</div>
 
-      <div class="input-group">
-        <input id="targetPosInput" type="number" step="0.1" class="input-field" placeholder="Enter angle (e.g. 360.0)">
-        <button class="btn btn-primary" onclick="sendTargetMove()">GO (G0)</button>
-      </div>
-
-      <div class="actions-row">
-        <button class="btn btn-emerald" onclick="sendAction('/api/v1/enable')">ENABLE</button>
-        <button class="btn" onclick="sendAction('/api/v1/home')">HOME A</button>
-        <button class="btn btn-danger" onclick="sendAction('/api/v1/abort')">ABORT</button>
+      <div class="input-row">
+        <input id="targetPosInput" type="number" min="-720" max="720" step="0.1" class="num-input" style="flex: 1; text-align: left; padding: 0.6rem 0.75rem;" placeholder="Target angle (-720° to +720°)">
+        <button class="btn btn-primary" onclick="sendTargetMove()">GO MOVE</button>
       </div>
     </div>
 
-  </main>
+  </div>
 
   <script>
     let currentStep = 1.0;
-    let ws = null;
-    const CIRCUMFERENCE = 565; // 2 * PI * 90
+    let currentFeedrate = 1200; // 0 = Rapid G0, >0 = Feedrate F in °/min
+    let zeroOffset = parseFloat(localStorage.getItem('rotary_zero_offset')) || 0.0;
+    let lastRawPosition = 0.0;
+
+    function initOffsetUI() {
+      document.getElementById('offsetSlider').value = zeroOffset;
+      document.getElementById('offsetInput').value = zeroOffset.toFixed(1);
+      document.getElementById('offsetValText').innerText = `${zeroOffset >= 0 ? '+' : ''}${zeroOffset.toFixed(1)}°`;
+    }
 
     function setStep(val, elem) {
       currentStep = val;
-      document.querySelectorAll('.step-option').forEach(el => el.classList.remove('active'));
+      document.querySelectorAll('.step-btn').forEach(el => el.classList.remove('active'));
       elem.classList.add('active');
     }
 
-    function updateGauge(angleDeg) {
-      document.getElementById('readoutValue').innerText = `${angleDeg.toFixed(1)}°`;
-      // Map 0 - 360 to gauge circumference
-      let normalizedAngle = ((angleDeg % 360) + 360) % 360;
-      let offset = CIRCUMFERENCE - (normalizedAngle / 360) * CIRCUMFERENCE;
-      document.getElementById('gaugeProgress').style.strokeDashoffset = offset;
+    function setFeedrate(val, elem) {
+      currentFeedrate = val;
+      document.querySelectorAll('.speed-btn').forEach(el => el.classList.remove('active'));
+      if (elem) elem.classList.add('active');
+      
+      document.getElementById('speedInput').value = val;
+      if (val > 0) {
+        document.getElementById('speedSlider').value = val;
+        document.getElementById('feedrateValText').innerText = `${val} °/min`;
+      } else {
+        document.getElementById('feedrateValText').innerText = `RAPID (G0)`;
+      }
+    }
+
+    function updateFeedrateFromSlider(val) {
+      setFeedrate(parseInt(val), null);
+    }
+
+    function updateFeedrateFromInput(val) {
+      setFeedrate(parseInt(val) || 0, null);
+    }
+
+    function updateOffsetFromSlider(val) {
+      zeroOffset = parseFloat(val);
+      localStorage.setItem('rotary_zero_offset', zeroOffset);
+      document.getElementById('offsetInput').value = zeroOffset.toFixed(1);
+      document.getElementById('offsetValText').innerText = `${zeroOffset >= 0 ? '+' : ''}${zeroOffset.toFixed(1)}°`;
+      updateReadouts(lastRawPosition);
+    }
+
+    function updateOffsetFromInput(val) {
+      zeroOffset = parseFloat(val) || 0.0;
+      localStorage.setItem('rotary_zero_offset', zeroOffset);
+      document.getElementById('offsetSlider').value = zeroOffset;
+      document.getElementById('offsetValText').innerText = `${zeroOffset >= 0 ? '+' : ''}${zeroOffset.toFixed(1)}°`;
+      updateReadouts(lastRawPosition);
+    }
+
+    function setZeroOffsetHere() {
+      zeroOffset = -lastRawPosition;
+      updateOffsetFromInput(zeroOffset);
+    }
+
+    function resetOffset() {
+      updateOffsetFromInput(0.0);
+    }
+
+    function updateReadouts(rawAngleDeg) {
+      lastRawPosition = rawAngleDeg;
+      document.getElementById('actualPosReadout').innerText = `${rawAngleDeg.toFixed(2)}°`;
+      
+      let effectiveAngle = rawAngleDeg + zeroOffset;
+      document.getElementById('displayPosReadout').innerText = `${effectiveAngle.toFixed(2)}°`;
+    }
+
+    function updateHomingBadge(isHomed) {
+      const homingDot = document.getElementById('homingDot');
+      const homingText = document.getElementById('homingText');
+      if (isHomed) {
+        homingDot.className = "badge-dot";
+        homingText.innerText = "HOMED";
+      } else {
+        homingDot.className = "badge-dot warning";
+        homingText.innerText = "NOT HOMED";
+      }
     }
 
     async function fetchPosition() {
@@ -453,12 +587,13 @@
         const resp = await fetch('/api/v1/position');
         const data = await resp.json();
         if (data.ok) {
-          updateGauge(data.position_deg);
+          updateReadouts(data.position_deg);
+          updateHomingBadge(data.homed);
           document.getElementById('statusDot').classList.remove('offline');
           document.getElementById('statusText').innerText = 'Connected';
         } else {
           document.getElementById('statusDot').classList.add('offline');
-          document.getElementById('statusText').innerText = data.error || 'Connecting to LinuxCNC...';
+          document.getElementById('statusText').innerText = data.error || 'Connecting...';
         }
       } catch (e) {
         document.getElementById('statusDot').classList.add('offline');
@@ -481,21 +616,32 @@
     }
 
     function moveToPreset(angle) {
-      sendAction('/api/v1/preset', { preset_deg: angle });
+      let payload = { preset_deg: angle };
+      if (currentFeedrate > 0) payload.feedrate = currentFeedrate;
+      sendAction('/api/v1/preset', payload);
     }
 
     function jog(dir) {
-      sendAction('/api/v1/jog', { direction: dir, step: currentStep });
+      let payload = { direction: dir, step: currentStep };
+      if (currentFeedrate > 0) payload.feedrate = currentFeedrate;
+      sendAction('/api/v1/jog', payload);
     }
 
     function sendTargetMove() {
       const val = parseFloat(document.getElementById('targetPosInput').value);
       if (!isNaN(val)) {
-        sendAction('/api/v1/move', { position: val, mode: 'absolute' });
+        if (val < -720 || val > 720) {
+          alert("Target angle must be between -720° and +720°.");
+          return;
+        }
+        let payload = { position: val, mode: 'absolute' };
+        if (currentFeedrate > 0) payload.feedrate = currentFeedrate;
+        sendAction('/api/v1/move', payload);
       }
     }
 
-    // Init high-frequency position polling (5 Hz)
+    // Init
+    initOffsetUI();
     fetchPosition();
     setInterval(fetchPosition, 200);
   </script>

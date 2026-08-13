@@ -114,6 +114,8 @@ def get_current_position_data() -> dict:
                 "ok": True,
                 "axis": "A",
                 "position_deg": data.get("a", 0.0),
+                "homed": data.get("homed", False),
+                "state": data.get("state", "UNKNOWN"),
                 "raw": data
             }
         else:
@@ -130,15 +132,19 @@ def get_current_position_data() -> dict:
                 "ok": True,
                 "axis": "A",
                 "position_deg": pos.get("a", 0.0),
+                "homed": False,
+                "state": "UNKNOWN",
                 "raw": pos
             }
     except Exception as e:
         if MOCK_MODE:
-            return {"ok": True, "axis": "A", "position_deg": mock_state["a_position"], "mock": True}
+            return {"ok": True, "axis": "A", "position_deg": mock_state["a_position"], "homed": mock_state["homed"], "state": mock_state["state"], "mock": True}
         return {
             "ok": False,
             "connected": False,
             "position_deg": 0.0,
+            "homed": False,
+            "state": "OFFLINE",
             "error": f"LinuxCNC server disconnected on {GCODE_SERVER_HOST}:{GCODE_SERVER_PORT}"
         }
 
@@ -244,7 +250,8 @@ class RESTApiHandler(http.server.SimpleHTTPRequestHandler):
 
             elif path == "/api/v1/preset":
                 preset_deg = payload.get("preset_deg", 0.0)
-                gcode = f"G0 A{preset_deg:.4f}"
+                feedrate = payload.get("feedrate")
+                gcode = f"G1 A{preset_deg:.4f} F{feedrate:.2f}" if feedrate else f"G0 A{preset_deg:.4f}"
                 res = send_gcode_command(gcode)
                 response_data = {"status": "ok", "command": gcode, "target_position_deg": preset_deg, "raw_response": res.strip()}
 
@@ -254,6 +261,10 @@ class RESTApiHandler(http.server.SimpleHTTPRequestHandler):
 
             elif path == "/api/v1/enable":
                 res = send_gcode_command("ENABLE")
+                response_data = {"status": "ok", "raw_response": res.strip()}
+
+            elif path == "/api/v1/disable":
+                res = send_gcode_command("DISABLE")
                 response_data = {"status": "ok", "raw_response": res.strip()}
 
             elif path == "/api/v1/abort":

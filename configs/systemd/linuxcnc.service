@@ -7,7 +7,7 @@ Type=simple
 User=cnc
 WorkingDirectory=/home/cnc
 ExecStart=/usr/bin/linuxcnc /home/cnc/linuxcnc/configs/rotarytable/rotarytable.ini
-ExecStop=/usr/bin/halcmd unload all
+TimeoutStopSec=5
 Restart=on-failure
 RestartSec=5
 
