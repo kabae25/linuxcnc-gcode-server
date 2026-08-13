@@ -113,17 +113,6 @@
       background: var(--warning);
     }
 
-    /* Top Control Bar: ENABLE, DISABLE, HOME, ABORT */
-    .top-control-bar {
-      display: grid;
-      grid-template-columns: repeat(4, 1fr);
-      gap: 0.5rem;
-      background: var(--panel);
-      border: 1px solid var(--panel-border);
-      border-radius: 8px;
-      padding: 0.75rem;
-    }
-
     .panel {
       background: var(--panel);
       border: 1px solid var(--panel-border);
@@ -150,8 +139,9 @@
     /* Monospace Readout Cards */
     .readout-grid {
       display: grid;
-      grid-template-columns: 1fr 1fr;
+      grid-template-columns: 1fr 1fr auto;
       gap: 0.75rem;
+      align-items: center;
     }
 
     .readout-cell {
@@ -387,7 +377,7 @@
 
   <div class="container">
 
-    <!-- Header: Title + Controls + Live Status Badges -->
+    <!-- Header: Title + Controls + Status Badges -->
     <header>
       <div>
         <div class="header-title">LinuxCNC Rotary Table Controller</div>
@@ -412,49 +402,29 @@
     <div class="panel">
       <div class="panel-header">Position Readout</div>
 
-      <div class="readout-grid">
+      <div class="readout-grid" style="grid-template-columns: 1fr auto;">
         <div class="readout-cell">
-          <div class="readout-label"
-            style="display: flex; justify-content: space-between; align-items: center; width: 100%;">
+          <div class="readout-label" style="display: flex; justify-content: space-between; align-items: center;">
             <span>POSITION (A-AXIS)</span>
-            <!-- Homing Status Indicator -->
-            <div id="homingBadge" class="badge" style="padding: 0.2rem 0.5rem; margin-left: 0.5rem;">
+            <div id="homingBadge" class="badge" style="padding: 0.2rem 0.5rem;">
               <div id="homingDot" class="badge-dot warning"></div>
               <span id="homingText">NOT HOMED</span>
             </div>
           </div>
-          <div id="actualPosReadout" class="readout-value">---</div>
+          <div id="actualPosReadout" class="readout-value">0.00°</div>
         </div>
-        <button class="btn btn-lg btn-primary" onclick="sendAction('/api/v1/home')">HOME</button>
+        <button class="btn btn-lg btn-primary" style="height: 100%; min-width: 100px;" onclick="sendAction('/api/v1/home')">HOME A</button>
       </div>
+    </div>
 
-      <!-- Motion Speed / Feedrate Control Panel -->
-      <div class="panel">
-        <div class="panel-header" style="margin-top: 0.25rem;">Step Jogging</div>
-
-        <div style="display: flex; flex-direction: column; gap: 0.5rem;">
-          <div class="step-bar">
-            <div class="step-btn" onclick="setStep(0.1, this)">0.1°</div>
-            <div class="step-btn active" onclick="setStep(1.0, this)">1.0°</div>
-            <div class="step-btn" onclick="setStep(10.0, this)">10.0°</div>
-            <div class="step-btn" onclick="setStep(45.0, this)">45.0°</div>
-            <div class="step-btn" onclick="setStep(90.0, this)">90.0°</div>
-            <div class="step-btn" onclick="setStep(180.0, this)">180°</div>
-            <div class="step-btn" onclick="setStep(360.0, this)">360°</div>
-          </div>
-
-          <div class="jog-row">
-            <button class="btn jog-btn" onclick="jog(-1)">JOG CCW (-)</button>
-            <button class="btn jog-btn" onclick="jog(1)">JOG CW (+)</button>
-          </div>
-        </div>
-      </div>
+    <!-- Motion Speed / Feedrate Control Panel -->
+    <div class="panel">
+      <div class="panel-header">Motion Speed & Feedrate Control</div>
 
       <div class="speed-panel">
         <div class="speed-top">
           <span>JOG & MOVE FEEDRATE (°/min)</span>
-          <span id="feedrateValText" style="font-family: 'JetBrains Mono', monospace; color: var(--accent);">1200
-            °/min</span>
+          <span id="feedrateValText" style="font-family: 'JetBrains Mono', monospace; color: var(--accent);">1200 °/min</span>
         </div>
         <div class="speed-presets">
           <div class="speed-btn" onclick="setFeedrate(300, this)">300°/min</div>
@@ -489,7 +459,24 @@
         <button class="btn" onclick="moveToPreset(720)">720°</button>
       </div>
 
+      <div class="panel-header" style="margin-top: 0.25rem;">Step Jogging</div>
 
+      <div style="display: flex; flex-direction: column; gap: 0.5rem;">
+        <div class="step-bar">
+          <div class="step-btn" onclick="setStep(0.1, this)">0.1°</div>
+          <div class="step-btn active" onclick="setStep(1.0, this)">1.0°</div>
+          <div class="step-btn" onclick="setStep(10.0, this)">10.0°</div>
+          <div class="step-btn" onclick="setStep(45.0, this)">45.0°</div>
+          <div class="step-btn" onclick="setStep(90.0, this)">90.0°</div>
+          <div class="step-btn" onclick="setStep(180.0, this)">180°</div>
+          <div class="step-btn" onclick="setStep(360.0, this)">360°</div>
+        </div>
+
+        <div class="jog-row">
+          <button class="btn jog-btn" onclick="jog(-1)">JOG CCW (-)</button>
+          <button class="btn jog-btn" onclick="jog(1)">JOG CW (+)</button>
+        </div>
+      </div>
 
       <div class="panel-header" style="margin-top: 0.25rem;">Target Position Move</div>
 
@@ -505,15 +492,7 @@
   <script>
     let currentStep = 1.0;
     let currentFeedrate = 1200; // 0 = Rapid G0, >0 = Feedrate F in °/min
-    let savedOffset = localStorage.getItem('rotary_zero_offset');
-    let zeroOffset = savedOffset !== null ? parseFloat(savedOffset) : -71.0;
     let lastRawPosition = 0.0;
-
-    function initOffsetUI() {
-      document.getElementById('offsetSlider').value = zeroOffset;
-      document.getElementById('offsetInput').value = zeroOffset.toFixed(1);
-      document.getElementById('offsetValText').innerText = `${zeroOffset >= 0 ? '+' : ''}${zeroOffset.toFixed(1)}°`;
-    }
 
     function setStep(val, elem) {
       currentStep = val;
@@ -525,7 +504,7 @@
       currentFeedrate = val;
       document.querySelectorAll('.speed-btn').forEach(el => el.classList.remove('active'));
       if (elem) elem.classList.add('active');
-
+      
       document.getElementById('speedInput').value = val;
       if (val > 0) {
         document.getElementById('speedSlider').value = val;
@@ -543,89 +522,50 @@
       setFeedrate(parseInt(val) || 0, null);
     }
 
-    function updateOffsetFromSlider(val) {
-      zeroOffset = parseFloat(val);
-      localStorage.setItem('rotary_zero_offset', zeroOffset);
-      document.getElementById('offsetInput').value = zeroOffset.toFixed(1);
-      document.getElementById('offsetValText').innerText = `${zeroOffset >= 0 ? '+' : ''}${zeroOffset.toFixed(1)}°`;
-      updateReadouts(lastRawPosition);
-    }
-
-    function updateOffsetFromInput(val) {
-      zeroOffset = parseFloat(val) || 0.0;
-      localStorage.setItem('rotary_zero_offset', zeroOffset);
-      document.getElementById('offsetSlider').value = zeroOffset;
-      document.getElementById('offsetValText').innerText = `${zeroOffset >= 0 ? '+' : ''}${zeroOffset.toFixed(1)}°`;
-      updateReadouts(lastRawPosition);
-    }
-
-    function setZeroOffsetHere() {
-      zeroOffset = -lastRawPosition;
-      updateOffsetFromInput(zeroOffset);
-    }
-
-    function resetOffset() {
-      updateOffsetFromInput(0.0);
-    }
-
     function updateReadouts(rawAngleDeg) {
       lastRawPosition = rawAngleDeg;
       const actualElem = document.getElementById('actualPosReadout');
       if (actualElem) {
         actualElem.innerText = `${rawAngleDeg.toFixed(2)}°`;
       }
-      const displayElem = document.getElementById('displayPosReadout');
-      if (displayElem) {
-        let effectiveAngle = rawAngleDeg + zeroOffset;
-        displayElem.innerText = `${effectiveAngle.toFixed(2)}°`;
-      }
     }
 
     function updateHomingBadge(isHomed) {
       const homingDot = document.getElementById('homingDot');
       const homingText = document.getElementById('homingText');
-      if (!homingDot || !homingText) return;
-      if (isHomed) {
-        homingDot.className = "badge-dot";
-        homingText.innerText = "HOMED";
-      } else {
-        homingDot.className = "badge-dot warning";
-        homingText.innerText = "NOT HOMED";
+      if (homingDot && homingText) {
+        if (isHomed) {
+          homingDot.className = "badge-dot";
+          homingText.innerText = "HOMED";
+        } else {
+          homingDot.className = "badge-dot warning";
+          homingText.innerText = "NOT HOMED";
+        }
       }
     }
 
-    let isPolling = false;
-
     async function fetchPosition() {
-      if (isPolling) return;
-      isPolling = true;
       try {
         const resp = await fetch('/api/v1/position');
         const data = await resp.json();
-        if (data && data.ok) {
-          if (typeof data.position_deg === 'number') {
-            updateReadouts(data.position_deg);
-          }
-          if (typeof data.homed !== 'undefined') {
-            updateHomingBadge(Boolean(data.homed));
-          }
-          const statusDot = document.getElementById('statusDot');
-          const statusText = document.getElementById('statusText');
-          if (statusDot) statusDot.className = "badge-dot";
-          if (statusText) statusText.innerText = 'Connected';
+        if (data.ok) {
+          updateReadouts(data.position_deg);
+          updateHomingBadge(data.homed);
+          const sDot = document.getElementById('statusDot');
+          const sText = document.getElementById('statusText');
+          if (sDot) sDot.className = "badge-dot";
+          if (sText) sText.innerText = 'Connected';
         } else {
-          const statusDot = document.getElementById('statusDot');
-          const statusText = document.getElementById('statusText');
-          if (statusDot) statusDot.className = "badge-dot offline";
-          if (statusText) statusText.innerText = (data && data.error) ? data.error : 'Disconnected';
+          const sDot = document.getElementById('statusDot');
+          const sText = document.getElementById('statusText');
+          if (sDot) sDot.className = "badge-dot offline";
+          if (sText) sText.innerText = data.error || 'Connecting...';
         }
       } catch (e) {
-        const statusDot = document.getElementById('statusDot');
-        const statusText = document.getElementById('statusText');
-        if (statusDot) statusDot.className = "badge-dot offline";
-        if (statusText) statusText.innerText = 'Offline';
-      } finally {
-        isPolling = false;
+        const sDot = document.getElementById('statusDot');
+        const sText = document.getElementById('statusText');
+        if (sDot) sDot.className = "badge-dot offline";
+        if (sText) sText.innerText = 'REST API Offline';
       }
     }
 
@@ -633,14 +573,13 @@
       try {
         const resp = await fetch(url, {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          headers: {'Content-Type': 'application/json'},
           body: JSON.stringify(payload)
         });
         await resp.json();
+        fetchPosition();
       } catch (err) {
         console.error("Action error:", err);
-      } finally {
-        setTimeout(fetchPosition, 50);
       }
     }
 
@@ -673,11 +612,8 @@
     }
 
     // Init
-    initOffsetUI();
     fetchPosition();
-    setInterval(() => {
-      if (!isPolling) fetchPosition();
-    }, 100);
+    setInterval(fetchPosition, 200);
   </script>
 </body>
 
