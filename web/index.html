@@ -399,11 +399,6 @@
           <button class="btn btn-sm btn-danger" onclick="sendAction('/api/v1/abort')">ABORT</button>
         </div>
         <div class="header-badges">
-          <!-- Homing Status Indicator -->
-          <div id="homingBadge" class="badge">
-            <div id="homingDot" class="badge-dot warning"></div>
-            <span id="homingText">NOT HOMED</span>
-          </div>
           <!-- Connection Status -->
           <div class="badge">
             <div id="statusDot" class="badge-dot"></div>
@@ -419,7 +414,15 @@
 
       <div class="readout-grid">
         <div class="readout-cell">
-          <div class="readout-label">POSITION (A-AXIS)</div>
+          <div class="readout-label"
+            style="display: flex; justify-content: space-between; align-items: center; width: 100%;">
+            <span>POSITION (A-AXIS)</span>
+            <!-- Homing Status Indicator -->
+            <div id="homingBadge" class="badge" style="padding: 0.2rem 0.5rem; margin-left: 0.5rem;">
+              <div id="homingDot" class="badge-dot warning"></div>
+              <span id="homingText">NOT HOMED</span>
+            </div>
+          </div>
           <div id="actualPosReadout" class="readout-value">---</div>
         </div>
         <button class="btn btn-lg btn-primary" onclick="sendAction('/api/v1/home')">HOME</button>
@@ -567,15 +570,21 @@
 
     function updateReadouts(rawAngleDeg) {
       lastRawPosition = rawAngleDeg;
-      document.getElementById('actualPosReadout').innerText = `${rawAngleDeg.toFixed(2)}°`;
-
-      let effectiveAngle = rawAngleDeg + zeroOffset;
-      document.getElementById('displayPosReadout').innerText = `${effectiveAngle.toFixed(2)}°`;
+      const actualElem = document.getElementById('actualPosReadout');
+      if (actualElem) {
+        actualElem.innerText = `${rawAngleDeg.toFixed(2)}°`;
+      }
+      const displayElem = document.getElementById('displayPosReadout');
+      if (displayElem) {
+        let effectiveAngle = rawAngleDeg + zeroOffset;
+        displayElem.innerText = `${effectiveAngle.toFixed(2)}°`;
+      }
     }
 
     function updateHomingBadge(isHomed) {
       const homingDot = document.getElementById('homingDot');
       const homingText = document.getElementById('homingText');
+      if (!homingDot || !homingText) return;
       if (isHomed) {
         homingDot.className = "badge-dot";
         homingText.innerText = "HOMED";
@@ -589,18 +598,28 @@
       try {
         const resp = await fetch('/api/v1/position');
         const data = await resp.json();
-        if (data.ok) {
-          updateReadouts(data.position_deg);
-          updateHomingBadge(data.homed);
-          document.getElementById('statusDot').classList.remove('offline');
-          document.getElementById('statusText').innerText = 'Connected';
+        if (data && data.ok) {
+          if (typeof data.position_deg === 'number') {
+            updateReadouts(data.position_deg);
+          }
+          if (typeof data.homed !== 'undefined') {
+            updateHomingBadge(Boolean(data.homed));
+          }
+          const statusDot = document.getElementById('statusDot');
+          const statusText = document.getElementById('statusText');
+          if (statusDot) statusDot.className = "badge-dot";
+          if (statusText) statusText.innerText = 'Connected';
         } else {
-          document.getElementById('statusDot').classList.add('offline');
-          document.getElementById('statusText').innerText = data.error || 'Connecting...';
+          const statusDot = document.getElementById('statusDot');
+          const statusText = document.getElementById('statusText');
+          if (statusDot) statusDot.className = "badge-dot offline";
+          if (statusText) statusText.innerText = (data && data.error) ? data.error : 'Disconnected';
         }
       } catch (e) {
-        document.getElementById('statusDot').classList.add('offline');
-        document.getElementById('statusText').innerText = 'REST API Offline';
+        const statusDot = document.getElementById('statusDot');
+        const statusText = document.getElementById('statusText');
+        if (statusDot) statusDot.className = "badge-dot offline";
+        if (statusText) statusText.innerText = 'Offline';
       }
     }
 
@@ -611,10 +630,11 @@
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(payload)
         });
-        const res = await resp.json();
-        fetchPosition();
+        await resp.json();
       } catch (err) {
         console.error("Action error:", err);
+      } finally {
+        setTimeout(fetchPosition, 100);
       }
     }
 
